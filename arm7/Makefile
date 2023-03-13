@@ -24,7 +24,7 @@ DATA     :=
 #---------------------------------------------------------------------------------
 ARCH := -mthumb-interwork
 
-CFLAGS   := -g -Wall -O3\
+CFLAGS   := -g -Wall -O2\
             $(ARCH) $(INCLUDE) -DARM7
 CXXFLAGS := $(CFLAGS) -fno-rtti -fno-exceptions
 ASFLAGS  := -g $(ARCH)

@@ -3,7 +3,7 @@
 /*
  * memcmp2
  */
-volatile inline int memcmp2(u8 *a, u8 *b, u32 len)
+volatile int memcmp2(u8 *a, u8 *b, u32 len)
 {
 	u32 i;
 	for (i=0; i<len; i++)
