@@ -15,29 +15,30 @@
 
 u32 DumpFirmware(u8 *firmware_buffer, u32 max_size)
 {
-    IPC->mailAddr = (u32)firmware_buffer;
-    IPC->mailSize = max_size;
-//    IPC->mailData = 0x00;
-    IPC->mailBusy = 0xF1;
-    while (IPC->mailBusy);
-    return IPC->mailSize;
+    fifoSendValue32(FIFO_USER_01, (u32)firmware_buffer);
+    fifoSendValue32(FIFO_USER_01, max_size);
+    fifoSendValue32(FIFO_USER_02, 0xF1);
+    fifoWaitValue32(FIFO_USER_03);
+    return fifoGetValue32(FIFO_USER_03);
 }
 
 u32 DumpBios (u8 *firmware_buffer, u32 max_size)
 {
-    IPC->mailAddr = (u32)firmware_buffer;
-    IPC->mailSize = max_size;
-//    IPC->mailData = 0xFF;
-//    IPC->mailBusy = 0xF1;
-    IPC->mailBusy = 0xF2;
-    while (IPC->mailBusy);
-    return IPC->mailSize;
+    fifoSendValue32(FIFO_USER_01, (u32)firmware_buffer);
+    fifoSendValue32(FIFO_USER_01, max_size);
+    fifoSendValue32(FIFO_USER_02, 0xF2);
+    fifoWaitValue32(FIFO_USER_03);
+    return fifoGetValue32(FIFO_USER_03);
 }
 
 int SaveToFile(char *filename, u8 *firmware_buffer, u32 size)
 {
     FILE *f = fopen(filename, "wb");
-    if (f == '\0') iprintf("File open failed");
+    if (!f) {
+        iprintf("File open failed");
+        fclose(f);
+        return -1;
+    }
     fwrite(firmware_buffer, 1, size, f);
     fclose(f);
     return 0;
@@ -108,16 +109,12 @@ int main()
     irqSet(IRQ_VBLANK, 0);
     //irqEnable(IRQ_VBLANK);
 
-    POWER_CR = POWER_ALL_2D ;
+    REG_POWERCNT = POWER_ALL_2D ;
 
-    videoSetMode(MODE_FB1);    //not using the main screen - make it black
-    videoSetModeSub(MODE_0_2D | DISPLAY_BG0_ACTIVE);    //sub bg 0 will be used to print text
-    vramSetBankC(VRAM_C_SUB_BG);
-
-    SUB_BG0_CR = BG_MAP_BASE(31);
+    REG_BG0CNT_SUB = BG_MAP_BASE(31);
 
     BG_PALETTE_SUB[255] = RGB15(0,0,31);
-    consoleInitDefault((u16*)SCREEN_BASE_BLOCK_SUB(31), (u16*)CHAR_BASE_BLOCK_SUB(0), 16);
+    consoleDemoInit();
 
     iprintf(" NDS B+F dumper 0.1\n");
     iprintf("=------------------=\n");

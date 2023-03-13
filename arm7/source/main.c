@@ -28,34 +28,24 @@ int main(int argc, char ** argv) {
     {
         swiWaitForVBlank();
 
-        if (IPC->mailBusy == 0xF1)
-        {
+        if(fifoCheckValue32(FIFO_USER_02)) {
+            u32 ret, mailAddr, mailSize = 0;
             extern u32 DumpFirmware(u8 *buf, u32 max_size);
-            IPC->mailSize = DumpFirmware((u8 *)IPC->mailAddr, IPC->mailSize);
-            IPC->mailBusy = 0;
-        }
-        else if (IPC->mailBusy == 0xF2)
-        {
-            arm7dump((u8 *)IPC->mailAddr);
-            IPC->mailSize = 16384;
-            IPC->mailBusy = 0;
+            switch(fifoGetValue32(FIFO_USER_02)) {
+                case 0xF1:
+                    mailAddr = fifoGetValue32(FIFO_USER_01);
+                    mailSize = fifoGetValue32(FIFO_USER_01);
+                    ret = DumpFirmware((u8 *)mailAddr, mailSize);
+                    break;
+                case 0xF2:
+                    arm7dump((u8 *)fifoGetValue32(FIFO_USER_01));
+                    ret = 16384;
+                    break;
+                default:
+                    break;
+            }
+            if (ret)
+                fifoSendValue32(FIFO_USER_03, ret);
         }
     }
 }
-
-/*
-        if (IPC->mailBusy == 0xF1)
-        {
-            if (IPC->mailData == 0x00)
-            {
-                extern u32 DumpFirmware(u8 *buf, u32 max_size);
-                IPC->mailSize = DumpFirmware((u8 *)IPC->mailAddr, IPC->mailSize);
-                IPC->mailBusy = 0;
-            }
-            if (IPC->mailData == 0xFF)
-            {
-                arm7dump((u8 *)IPC->mailAddr, IPC->mailSize);
-                IPC->mailSize = 16384;
-                IPC->mailBusy = 0;
-            }
-*/
