@@ -105,15 +105,7 @@ int dumper()
  */
 int main()
 {
-    irqInit();
-    irqSet(IRQ_VBLANK, 0);
-    //irqEnable(IRQ_VBLANK);
-
     REG_POWERCNT = POWER_ALL_2D ;
-
-    REG_BG0CNT_SUB = BG_MAP_BASE(31);
-
-    BG_PALETTE_SUB[255] = RGB15(0,0,31);
     consoleDemoInit();
 
     iprintf(" NDS B+F dumper 0.1\n");
