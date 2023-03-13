@@ -1,10 +1,9 @@
 #include <nds.h>
-#include <string.h>
 
 /*
  * memcmp2
  */
-inline int memcmp2(u8 *a, u8 *b, u32 len)
+volatile inline int memcmp2(u8 *a, u8 *b, u32 len)
 {
 	u32 i;
 	for (i=0; i<len; i++)
