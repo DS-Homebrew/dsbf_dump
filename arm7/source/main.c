@@ -8,6 +8,8 @@
 //#include <nds/arm7/clock.h>
 #include "dump.h"
 
+#include "../../common/fifoChannels.h"
+
 //---------------------------------------------------------------------------------
 void VblankHandler(void) {
 //---------------------------------------------------------------------------------
@@ -28,24 +30,24 @@ int main(int argc, char ** argv) {
     {
         swiWaitForVBlank();
 
-        if(fifoCheckValue32(FIFO_USER_02)) {
-            u32 ret, mailAddr, mailSize = 0;
+        if(fifoCheckValue32(FIFO_CONTROL)) {
+            u32 ret = 0;
+            u32 mailAddr = fifoGetValue32(FIFO_BUFFER_ADDR);
+            u32 mailSize = fifoGetValue32(FIFO_BUFFER_SIZE);
             extern u32 DumpFirmware(u8 *buf, u32 max_size);
-            switch(fifoGetValue32(FIFO_USER_02)) {
+            switch(fifoGetValue32(FIFO_CONTROL)) {
                 case 0xF1:
-                    mailAddr = fifoGetValue32(FIFO_USER_01);
-                    mailSize = fifoGetValue32(FIFO_USER_01);
                     ret = DumpFirmware((u8 *)mailAddr, mailSize);
                     break;
                 case 0xF2:
-                    arm7dump((u8 *)fifoGetValue32(FIFO_USER_01));
+                    arm7dump((u8 *)mailAddr);
                     ret = 16384;
                     break;
                 default:
                     break;
             }
-            if (ret)
-                fifoSendValue32(FIFO_USER_03, ret);
+            if (ret > 0)
+                fifoSendValue32(FIFO_RETURN, ret);
         }
     }
 }

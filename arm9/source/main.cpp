@@ -10,25 +10,26 @@
 #include <string.h>
 #include <stdlib.h>
 
+#include "../../common/fifoChannels.h"
 
 #define MAX_SIZE    (1*1024*1024 + 256)  // 1048832 != 262144 file out ??
 
 u32 DumpFirmware(u8 *firmware_buffer, u32 max_size)
 {
-    fifoSendValue32(FIFO_USER_01, (u32)firmware_buffer);
-    fifoSendValue32(FIFO_USER_01, max_size);
-    fifoSendValue32(FIFO_USER_02, 0xF1);
-    fifoWaitValue32(FIFO_USER_03);
-    return fifoGetValue32(FIFO_USER_03);
+    fifoSendValue32(FIFO_BUFFER_ADDR, (u32)firmware_buffer);
+    fifoSendValue32(FIFO_BUFFER_SIZE, max_size);
+    fifoSendValue32(FIFO_CONTROL, 0xF1);
+    fifoWaitValue32(FIFO_RETURN);
+    return fifoGetValue32(FIFO_RETURN);
 }
 
 u32 DumpBios (u8 *firmware_buffer, u32 max_size)
 {
-    fifoSendValue32(FIFO_USER_01, (u32)firmware_buffer);
-    fifoSendValue32(FIFO_USER_01, max_size);
-    fifoSendValue32(FIFO_USER_02, 0xF2);
-    fifoWaitValue32(FIFO_USER_03);
-    return fifoGetValue32(FIFO_USER_03);
+    fifoSendValue32(FIFO_BUFFER_ADDR, (u32)firmware_buffer);
+    fifoSendValue32(FIFO_BUFFER_SIZE, max_size);
+    fifoSendValue32(FIFO_CONTROL, 0xF2);
+    fifoWaitValue32(FIFO_RETURN);
+    return fifoGetValue32(FIFO_RETURN);
 }
 
 int SaveToFile(char *filename, u8 *firmware_buffer, u32 size)
@@ -50,7 +51,7 @@ int dumper()
     u32 size = DumpFirmware(firmware_buffer, MAX_SIZE);
 
     iprintf("-Dumping firmware-\n");
-    iprintf("Size  : %u\n", size);
+    iprintf("Size  : %lu\n", size);
     if (size > MAX_SIZE)
     {
         iprintf("Firmware bigger than expected.\n");
@@ -78,8 +79,8 @@ int dumper()
     }
     iprintf("--dumping A7 bios--\n");
     size = DumpBios(firmware_buffer, MAX_SIZE);
-    iprintf("Size  : %u\n", size);
-    iprintf("Saving: BIOSNDS7.ROM...\n\n", filename);
+    iprintf("Size  : %lu\n", size);
+    iprintf("Saving: BIOSNDS7.ROM...\n\n");
     if (SaveToFile("BIOSNDS7.ROM", firmware_buffer, size) < 0)
     {
         iprintf("Error!\n");
@@ -88,8 +89,8 @@ int dumper()
 //Arm 9 bios directly. The range to read is 0xFFFF0000 - 0xFFFF0FFF. (4KB).
     iprintf("--dumping A9 bios--\n");
     size = 4096; // arm9 is 4k
-    iprintf("Size  : %u\n", size);
-    iprintf("Saving: BIOSNDS9.ROM...\n\n", filename);
+    iprintf("Size  : %lu\n", size);
+    iprintf("Saving: BIOSNDS9.ROM...\n\n");
     if (SaveToFile("BIOSNDS9.ROM", (u8*)0xFFFF0000, size) < 0)
     {
         iprintf("Error!\n");
@@ -105,7 +106,10 @@ int dumper()
  */
 int main()
 {
-    REG_POWERCNT = POWER_ALL_2D ;
+    irqInit();
+    irqSet(IRQ_VBLANK, 0);
+    //irqEnable(IRQ_VBLANK);
+    REG_POWERCNT |= POWER_ALL_2D ;
     consoleDemoInit();
 
     iprintf(" NDS B+F dumper 0.1\n");
