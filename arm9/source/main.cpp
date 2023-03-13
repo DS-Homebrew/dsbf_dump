@@ -110,10 +110,6 @@ int dumper()
  */
 int main()
 {
-    irqInit();
-    irqSet(IRQ_VBLANK, 0);
-    //irqEnable(IRQ_VBLANK);
-    REG_POWERCNT |= POWER_ALL_2D ;
     consoleDemoInit();
 
     iprintf(" NDS B+F dumper 0.1\n");
