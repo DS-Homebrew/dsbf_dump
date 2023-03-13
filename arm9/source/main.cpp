@@ -4,15 +4,14 @@
 
 #include <nds.h>
 #include <nds/arm9/console.h>
+#include <fat.h>
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 
-#include "gba_nds_fat.h"
 
 #define MAX_SIZE    (1*1024*1024 + 256)  // 1048832 != 262144 file out ??
-
-FAT_FILE *f;
 
 u32 DumpFirmware(u8 *firmware_buffer, u32 max_size)
 {
@@ -37,11 +36,10 @@ u32 DumpBios (u8 *firmware_buffer, u32 max_size)
 
 int SaveToFile(char *filename, u8 *firmware_buffer, u32 size)
 {
-//    if (!FAT_InitFiles()) {iprintf("FAT init failed\n"); return -1;}
-    f = FAT_fopen(filename, "wb");
+    FILE *f = fopen(filename, "wb");
     if (f == '\0') iprintf("File open failed");
-    FAT_fwrite(firmware_buffer, 1, size, f);
-    FAT_fclose(f);
+    fwrite(firmware_buffer, 1, size, f);
+    fclose(f);
     return 0;
 }
 
@@ -124,10 +122,9 @@ int main()
     iprintf(" NDS B+F dumper 0.1\n");
     iprintf("=------------------=\n");
 
-    if (!FAT_InitFiles()) {iprintf("\nFAT init failed!\n"); return -1;}
+    if (!fatInitDefault()) {iprintf("\nFAT init failed!\n"); return -1;}
     else dumper();
 
-    if (!FAT_FreeFiles())  {iprintf("\nFAT free failed!\n"); return -1;}
     iprintf("Dumps completed.\n");
 
 
