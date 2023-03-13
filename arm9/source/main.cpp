@@ -47,6 +47,10 @@ int SaveToFile(char *filename, u8 *firmware_buffer, u32 size)
 
 int dumper()
 {
+    // wait for ARM7 ready
+    fifoWaitValue32(FIFO_CONTROL);
+    fifoGetValue32(FIFO_CONTROL);
+
     u8 *firmware_buffer = (u8 *)malloc(MAX_SIZE) + 0x400000;    // uncached
     u32 size = DumpFirmware(firmware_buffer, MAX_SIZE);
 
