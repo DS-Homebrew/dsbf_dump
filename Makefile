@@ -16,9 +16,9 @@ GAME_ICON :=
 NITRO_FILES :=
 
 # These set the information text in the nds file
-#GAME_TITLE     := My Wonderful Homebrew
-#GAME_SUBTITLE1 := built with devkitARM
-#GAME_SUBTITLE2 := http://devitpro.org
+GAME_TITLE     := dsbf_dump
+GAME_SUBTITLE1 := NDS BIOS / FW dumper
+GAME_SUBTITLE2 := cory1492 & DS-Homebrew
 
 include $(DEVKITARM)/ds_rules
 

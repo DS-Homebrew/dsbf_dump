@@ -18,7 +18,7 @@ u32 DumpFirmware(u8 *firmware_buffer, u32 max_size)
 {
     fifoSendValue32(FIFO_BUFFER_ADDR, (u32)firmware_buffer);
     fifoSendValue32(FIFO_BUFFER_SIZE, max_size);
-    fifoSendValue32(FIFO_CONTROL, 0xF1);
+    fifoSendValue32(FIFO_CONTROL, DSBF_DUMP_FW);
     fifoWaitValue32(FIFO_RETURN);
     return fifoGetValue32(FIFO_RETURN);
 }
@@ -27,7 +27,7 @@ u32 DumpBios (u8 *firmware_buffer, u32 max_size)
 {
     fifoSendValue32(FIFO_BUFFER_ADDR, (u32)firmware_buffer);
     fifoSendValue32(FIFO_BUFFER_SIZE, max_size);
-    fifoSendValue32(FIFO_CONTROL, 0xF2);
+    fifoSendValue32(FIFO_CONTROL, DSBF_DUMP_BIOS7);
     fifoWaitValue32(FIFO_RETURN);
     return fifoGetValue32(FIFO_RETURN);
 }
@@ -48,8 +48,8 @@ int SaveToFile(char *filename, u8 *firmware_buffer, u32 size)
 int dumper()
 {
     // wait for ARM7 ready
-    fifoWaitValue32(FIFO_CONTROL);
-    fifoGetValue32(FIFO_CONTROL);
+    fifoWaitValue32(FIFO_RETURN);
+    fifoGetValue32(FIFO_RETURN);
 
     u8 *firmware_buffer = (u8 *)malloc(MAX_SIZE) + 0x400000;    // uncached
     u32 size = DumpFirmware(firmware_buffer, MAX_SIZE);
@@ -105,23 +105,38 @@ int dumper()
     return 0;
 }
 
+int exit(void) {
+    iprintf("Press START to exit.\n");
+    while(true) {
+        swiWaitForVBlank();
+        scanKeys();
+        if(keysDown() & KEY_START) break;
+    }
+    fifoSendValue32(FIFO_CONTROL, DSBF_EXIT);
+    return 0;
+}
+
 /*
  * main
  */
-int main()
+int main(void)
 {
     consoleDemoInit();
 
     iprintf(" NDS B+F dumper 0.1\n");
     iprintf("=------------------=\n");
 
-    if (!fatInitDefault()) {iprintf("\nFAT init failed!\n"); return -1;}
-    else dumper();
+    if (!fatInitDefault()) {
+        iprintf("\nFAT init failed!\n");
+        return exit();
+    }
+    if(!isDSiMode()) {
+        iprintf("\nThis app only works in DS mode.\n");
+        return exit();
+    }
+    dumper();
 
     iprintf("Dumps completed.\n");
 
-
-    while (1) swiWaitForVBlank();
-
-    return 0;
+    return exit();
 }

@@ -4,8 +4,6 @@
 #include <nds.h>
 
 #include <nds/bios.h>
-//#include <nds/arm7/touch.h>
-//#include <nds/arm7/clock.h>
 #include "dump.h"
 
 #include "../../common/fifoChannels.h"
@@ -27,7 +25,7 @@ int main(int argc, char ** argv) {
     irqEnable(IRQ_VBLANK);
 	installSystemFIFO();
 
-    fifoSendValue32(FIFO_CONTROL, 1); // notify ARM9 that things ready
+    fifoSendValue32(FIFO_RETURN, 1); // notify ARM9 that things ready
 
     // Keep the ARM7 out of main RAM
     while (1)
@@ -40,12 +38,14 @@ int main(int argc, char ** argv) {
             u32 mailAddr = fifoGetValue32(FIFO_BUFFER_ADDR);
             u32 mailSize = fifoGetValue32(FIFO_BUFFER_SIZE);
             extern u32 DumpFirmware(u8 *buf, u32 max_size);
-            if(dumpOption == 0xF1)
+            if(dumpOption == DSBF_DUMP_FW)
                 ret = DumpFirmware((u8 *)mailAddr, mailSize);
-            else if(dumpOption == 0xF2) {
+            else if(dumpOption == DSBF_DUMP_BIOS7) {
                 arm7dump((u8 *)mailAddr);
                 ret = 16384;
-            }
+            } else if (dumpOption == DSBF_EXIT)
+                // just exit, not like anything is alloc'd here
+                return 0;
             fifoSendValue32(FIFO_RETURN, ret);
         }
     }
