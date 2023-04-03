@@ -51,7 +51,7 @@ int dumper()
     fifoWaitValue32(FIFO_RETURN);
     fifoGetValue32(FIFO_RETURN);
 
-    u8 *firmware_buffer = (u8 *)malloc(MAX_SIZE) + 0x400000;    // uncached
+    u8 *firmware_buffer = (u8 *)malloc(MAX_SIZE + 0x400000) ;    // uncached
     u32 size = DumpFirmware(firmware_buffer, MAX_SIZE);
 
     iprintf("-Dumping firmware-\n");
@@ -85,7 +85,8 @@ int dumper()
     size = DumpBios(firmware_buffer, MAX_SIZE);
     iprintf("Size  : %lu\n", size);
     iprintf("Saving: BIOSNDS7.ROM...\n\n");
-    if (SaveToFile("BIOSNDS7.ROM", firmware_buffer, size) < 0)
+    strcpy(filename, "BIOSNDS7.ROM");
+    if (SaveToFile(filename, firmware_buffer, size) < 0)
     {
         iprintf("Error!\n");
         return -1;
@@ -95,7 +96,8 @@ int dumper()
     size = 4096; // arm9 is 4k
     iprintf("Size  : %lu\n", size);
     iprintf("Saving: BIOSNDS9.ROM...\n\n");
-    if (SaveToFile("BIOSNDS9.ROM", (u8*)0xFFFF0000, size) < 0)
+    strcpy(filename, "BIOSNDS9.ROM");
+    if (SaveToFile(filename, (u8*)0xFFFF0000, size) < 0)
     {
         iprintf("Error!\n");
         return -1;
