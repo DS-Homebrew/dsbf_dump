@@ -123,7 +123,7 @@ int main(void)
 {
     consoleDemoInit();
 
-    iprintf(" NDS B+F dumper 0.1\n");
+    iprintf(" NDS B+F dumper 0.2\n");
     iprintf("=------------------=\n");
 
     if (!fatInitDefault()) {
