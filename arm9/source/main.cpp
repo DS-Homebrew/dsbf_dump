@@ -108,6 +108,7 @@ int dumper()
     }
 
     iprintf("Freeing files\n");
+    free(firmware_buffer);
     return 0;
 }
 
