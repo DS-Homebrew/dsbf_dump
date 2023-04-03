@@ -11,6 +11,7 @@
 #include <stdlib.h>
 
 #include "../../common/fifoChannels.h"
+#include "tonccpy.h"
 
 #define MAX_SIZE    (1*1024*1024 + 256)  // 1048832 != 262144 file out ??
 
@@ -51,7 +52,7 @@ int dumper()
     fifoWaitValue32(FIFO_RETURN);
     fifoGetValue32(FIFO_RETURN);
 
-    u8 *firmware_buffer = (u8 *)malloc(MAX_SIZE + 0x400000) ;    // uncached
+    u8 *firmware_buffer = (u8 *)malloc(MAX_SIZE);    // uncached
     u32 size = DumpFirmware(firmware_buffer, MAX_SIZE);
 
     iprintf("-Dumping firmware-\n");
@@ -91,13 +92,16 @@ int dumper()
         iprintf("Error!\n");
         return -1;
     }
-//Arm 9 bios directly. The range to read is 0xFFFF0000 - 0xFFFF0FFF. (4KB).
+
+//Arm 9 bios. The range to read is 0xFFFF0000 - 0xFFFF0FFF. (4KB).
+//Dumping directly breaks some flashcarts
     iprintf("--dumping A9 bios--\n");
     size = 4096; // arm9 is 4k
     iprintf("Size  : %lu\n", size);
+    tonccpy((void*)firmware_buffer, (void*)0xFFFF0000, size);
     iprintf("Saving: BIOSNDS9.ROM...\n\n");
     strcpy(filename, "BIOSNDS9.ROM");
-    if (SaveToFile(filename, (u8*)0xFFFF0000, size) < 0)
+    if (SaveToFile(filename, firmware_buffer, size) < 0)
     {
         iprintf("Error!\n");
         return -1;
