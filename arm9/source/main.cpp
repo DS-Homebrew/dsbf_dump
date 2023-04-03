@@ -130,7 +130,7 @@ int main(void)
         iprintf("\nFAT init failed!\n");
         return exit();
     }
-    if(!isDSiMode()) {
+    if(isDSiMode()) {
         iprintf("\nThis app only works in DS mode.\n");
         return exit();
     }
