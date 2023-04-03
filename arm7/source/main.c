@@ -37,10 +37,10 @@ int main(int argc, char ** argv) {
             u32 ret = 0;
             u32 mailAddr = fifoGetValue32(FIFO_BUFFER_ADDR);
             u32 mailSize = fifoGetValue32(FIFO_BUFFER_SIZE);
-            extern u32 DumpFirmware(u8 *buf, u32 max_size);
-            if(dumpOption == DSBF_DUMP_FW)
-                ret = DumpFirmware((u8 *)mailAddr, mailSize);
-            else if(dumpOption == DSBF_DUMP_BIOS7) {
+            if(dumpOption == DSBF_DUMP_FW) {
+                readFirmware(0, (void *)mailAddr, mailSize);
+                ret = 524288;
+            } else if(dumpOption == DSBF_DUMP_BIOS7) {
                 arm7dump((u8 *)mailAddr);
                 ret = 16384;
             } else if (dumpOption == DSBF_EXIT)
