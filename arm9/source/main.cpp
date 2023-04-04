@@ -18,7 +18,7 @@
 u32 DumpFirmware(u8 *firmware_buffer, u32 max_size)
 {
 	readFirmware(0, firmware_buffer, max_size);
-    return max_size;
+    return 524288;
 }
 
 u32 DumpBios (u8 *firmware_buffer, u32 max_size)
