@@ -16,15 +16,14 @@ void VblankHandler(void) {
 //---------------------------------------------------------------------------------
 int main(int argc, char ** argv) {
 //---------------------------------------------------------------------------------
-	readUserSettings();
+    // Reset the clock if needed
+    rtcReset();
 
     irqInit();
-	// Start the RTC tracking IRQ
-	initClockIRQ();
     fifoInit();
-	installSystemFIFO();
     irqSet(IRQ_VBLANK, VblankHandler);
     irqEnable(IRQ_VBLANK);
+	installSystemFIFO();
 
     fifoSendValue32(FIFO_RETURN, 1); // notify ARM9 that things ready
 
@@ -37,7 +36,11 @@ int main(int argc, char ** argv) {
             u32 dumpOption = fifoGetValue32(FIFO_CONTROL);
             u32 ret = 0;
             u32 mailAddr = fifoGetValue32(FIFO_BUFFER_ADDR);
-            if(dumpOption == DSBF_DUMP_BIOS7) {
+            u32 mailSize = fifoGetValue32(FIFO_BUFFER_SIZE);
+            if(dumpOption == DSBF_DUMP_FW) {
+                readFirmware(0, (void *)mailAddr, mailSize);
+                ret = 524288;
+            } else if(dumpOption == DSBF_DUMP_BIOS7) {
                 arm7dump((u8 *)mailAddr);
                 ret = 16384;
             } else if (dumpOption == DSBF_EXIT)

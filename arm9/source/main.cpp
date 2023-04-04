@@ -17,13 +17,17 @@
 
 u32 DumpFirmware(u8 *firmware_buffer, u32 max_size)
 {
-	readFirmware(0, firmware_buffer, max_size);
-    return 524288;
+    fifoSendValue32(FIFO_BUFFER_ADDR, (u32)firmware_buffer);
+    fifoSendValue32(FIFO_BUFFER_SIZE, max_size);
+    fifoSendValue32(FIFO_CONTROL, DSBF_DUMP_FW);
+    fifoWaitValue32(FIFO_RETURN);
+    return fifoGetValue32(FIFO_RETURN);
 }
 
 u32 DumpBios (u8 *firmware_buffer, u32 max_size)
 {
     fifoSendValue32(FIFO_BUFFER_ADDR, (u32)firmware_buffer);
+    fifoSendValue32(FIFO_BUFFER_SIZE, max_size);
     fifoSendValue32(FIFO_CONTROL, DSBF_DUMP_BIOS7);
     fifoWaitValue32(FIFO_RETURN);
     return fifoGetValue32(FIFO_RETURN);
