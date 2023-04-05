@@ -17,7 +17,7 @@ include $(DEVKITARM)/ds_rules
 #---------------------------------------------------------------------------------
 BUILD    := build
 SOURCES  := source
-INCLUDES := include
+INCLUDES := include ../common/
 DATA     := data
 GRAPHICS :=
 

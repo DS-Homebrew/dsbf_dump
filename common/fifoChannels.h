@@ -1,3 +1,11 @@
+/*
+	NDS BIOS/firmware dumper
+
+	Copyright (C) 2023 DS-Homebrew
+
+	SPDX-License-Identifier: MIT
+*/
+
 #pragma once
 
 #define FIFO_BUFFER_ADDR	FIFO_USER_01
