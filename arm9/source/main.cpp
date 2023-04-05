@@ -83,7 +83,7 @@ int dumper()
         return -1;
     }
     iprintf("--dumping A7 bios--\n");
-    size = DumpBios(firmware_buffer, MAX_SIZE);
+    size = DumpBios(firmware_buffer, 0x4000);
     iprintf("Size  : %lu\n", size);
     iprintf("Saving: BIOSNDS7.ROM...\n\n");
     strcpy(filename, "BIOSNDS7.ROM");

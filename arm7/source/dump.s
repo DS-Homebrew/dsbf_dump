@@ -9,26 +9,28 @@
 @Additionally, if the PC is outside the 0x0000 - 0x1204 range, that range of the bios
 @is completely locked out from reading.
 
-.global arm7dump
+    .global readBios
+@ void readBios (u8* dest, u32 src, u32 size)
 
-    .align
-arm7dump:
     .arm
-    adr r1,bios_dump+1
-    bx r1
+
+readBios:
+    adr r3,bios_dump+1
+    bx r3
     .thumb
 
 bios_dump:
     push {r4-r7,lr} @Even though we don't use R7, the code we are jumping to is going
                     @trash R7, therefore, we must save it.
-    mov r2, r0
+	mov r5, r1		@ src
+	sub r1, r2, #1	@ size
+	mov r2, r0		@ dest
     ldr r0,=0x5ED   @The code that will be made to read the full bios resides here.
-    ldr r1,=0x3FFF  @Last byte of the Bios
-@    ldr r2,=0xA000000 @GBA cart saveram
 
 loop:
     mov r6,#0x12    @We Subtract 12 from the location we wish to read
     sub r3,r1,r6    @because the code at 0x5EC is LDRB    R3, [R3,#0x12]
+	add r3, r3, r5
     adr r6,ret
     push {r2-r6}    @The line of code at 0x5EE is POP     {R2,R4,R6,R7,PC}
     bx r0

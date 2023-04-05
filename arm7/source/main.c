@@ -41,8 +41,8 @@ int main(int argc, char ** argv) {
                 readFirmware(0, (void *)mailAddr, mailSize);
                 ret = 524288;
             } else if(dumpOption == DSBF_DUMP_BIOS7) {
-                arm7dump((u8 *)mailAddr);
-                ret = 16384;
+                readBios((u8 *)mailAddr, 0, mailSize);
+                ret = mailSize;
             } else if (dumpOption == DSBF_EXIT)
                 // just exit, not like anything is alloc'd here
                 return 0;

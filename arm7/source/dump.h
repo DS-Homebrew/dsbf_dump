@@ -4,7 +4,7 @@
 extern "C" {
 #endif
 
-void arm7dump(u8* addr);
+void readBios (u8* dest, u32 src, u32 size);
 
 #ifdef __cplusplus
 }
