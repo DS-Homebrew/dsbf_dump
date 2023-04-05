@@ -20,9 +20,13 @@
 	Found at 0x1D of firmware header.
 	Here, we use it to truncate the firmware to the correct size.
 	A switch case for this can be found in dump_firmware().
+
+	NDSL_2 is an undocumented firmware version. It is unknown what it does different, 
+	but it's there, it exists.
 */
 enum device_type {
 	DEVICE_TYPE_NDSL = 0x20,
+	DEVICE_TYPE_NDSL_2 = 0x35,
 	DEVICE_TYPE_IQUE = 0x43,
 	DEVICE_TYPE_NDSI = 0x57,
 	DEVICE_TYPE_IQUEL = 0x63,
@@ -58,7 +62,7 @@ u32 dump_firmware(u8* buffer, u32 size) {
 	fifoSendValue32(FIFO_CONTROL, DSBF_DUMP_FW);
 	fifoWaitValue32(FIFO_RETURN);
 	fifoGetValue32(FIFO_RETURN);
-
+/*
 	switch(buffer[0x1D]) {
 		case DEVICE_TYPE_NDSI:
 			ret = 0x20000;
@@ -73,6 +77,8 @@ u32 dump_firmware(u8* buffer, u32 size) {
 			ret = 0x80000;
 			break;
 	}
+*/
+	ret = 0x80000;
 	return ret;
 }
 
