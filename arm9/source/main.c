@@ -36,7 +36,7 @@ enum device_type {
 // dump DS BIOS9
 // no point in adding return value as BIOS is always 4KiB
 void dump_arm9(u8* buffer, u32 size) {
-	printf("Dumping BIOS9\n");
+	printf("Dumping BIOS9\n\n");
 	DC_InvalidateRange((void*)0xFFFF0000, 0x1000);
 	tonccpy((void*)buffer, (void*)0xFFFF0000, size);
 }
@@ -44,7 +44,7 @@ void dump_arm9(u8* buffer, u32 size) {
 // dump DS BIOS7
 // no point in adding return value as BIOS is always 16KiB
 void dump_arm7(u8* buffer, u32 size) {
-	printf("Call ARM7 to dump BIOS7\n");
+	printf("Call ARM7 to dump BIOS7\n\n");
 	fifoSendValue32(FIFO_BUFFER_ADDR, (u32)buffer);
 	fifoSendValue32(FIFO_BUFFER_SIZE, size);
 	fifoSendValue32(FIFO_CONTROL, DSBF_DUMP_BIOS7);
@@ -56,12 +56,24 @@ void dump_arm7(u8* buffer, u32 size) {
 // return value: size of firmware
 u32 dump_firmware(u8* buffer, u32 size) {
 	u32 ret = 0;
-	printf("Call ARM7 to dump FW\n");
+	printf("Call ARM7 to dump FW\n\n");
 	fifoSendValue32(FIFO_BUFFER_ADDR, (u32)buffer);
 	fifoSendValue32(FIFO_BUFFER_SIZE, size);
 	fifoSendValue32(FIFO_CONTROL, DSBF_DUMP_FW);
 	fifoWaitValue32(FIFO_RETURN);
 	fifoGetValue32(FIFO_RETURN);
+	switch(buffer[0x1D]) {
+		case DEVICE_TYPE_NDSI:
+		case DEVICE_TYPE_NDSL:
+		case DEVICE_TYPE_NDSL_2:
+		case DEVICE_TYPE_NDSP:
+		case DEVICE_TYPE_IQUE:
+		case DEVICE_TYPE_IQUEL:
+			break;
+		default:
+			printf("WARNING: this device has an\nunknown firmware version\n\n");
+			break;
+	}
 /*
 	switch(buffer[0x1D]) {
 		case DEVICE_TYPE_NDSI:
@@ -117,7 +129,7 @@ int dump_all(void) {
 		printf("%02X", buffer[0x36+i]);
 		if (i < 5) printf(":");
 	}
-	printf("\n");
+	printf("\n\n");
 
 	// store last half of MAC in file name
 	snprintf(filename, 13, "FW%s.bin", mac_addr + 6);
@@ -125,6 +137,7 @@ int dump_all(void) {
 		rc = -1;
 		goto end;
 	}
+	printf("\n\n");
 
 	toncset(buffer, 0, BUFFER_SIZE);
 	dump_arm7(buffer, 0x4000);
@@ -133,6 +146,7 @@ int dump_all(void) {
 		rc = -2;
 		goto end;
 	}
+	printf("\n\n");
 
 	toncset(buffer, 0, BUFFER_SIZE);
 	dump_arm9(buffer, 0x1000);
@@ -141,6 +155,7 @@ int dump_all(void) {
 		rc = -3;
 		goto end;
 	}
+	printf("\n\n");
 
 end:
 	free(buffer);
