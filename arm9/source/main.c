@@ -112,7 +112,7 @@ bool write_file(char* path, u8* buffer, u32 size) {
 
 int dump_all(void) {
 	u8* buffer = (u8*)malloc(BUFFER_SIZE);
-	char filename[14] = "xxxxxxxx.bin";
+	char filename[14] = "FWXXXXXX.bin";
 	char mac_addr[13];
 	int rc = 0;
 
@@ -121,7 +121,6 @@ int dump_all(void) {
 	fifoGetValue32(FIFO_RETURN);
 
 	u32 ret = dump_firmware(buffer, BUFFER_SIZE);
-	strncpy(filename, "FWXXXXXX.bin", 13);
 
 	printf("MAC: ");
 	for(int i=0; i<6; i++) {
@@ -141,7 +140,7 @@ int dump_all(void) {
 
 	toncset(buffer, 0, BUFFER_SIZE);
 	dump_arm7(buffer, 0x4000);
-	strncpy(filename, "biosnds7.rom", 13);
+	memcpy(filename, "biosnds7.rom", 13);
 	if(!write_file(filename, buffer, 0x4000)) {
 		rc = -2;
 		goto end;
@@ -150,7 +149,7 @@ int dump_all(void) {
 
 	toncset(buffer, 0, BUFFER_SIZE);
 	dump_arm9(buffer, 0x1000);
-	strncpy(filename, "biosnds9.rom", 13);
+	memcpy(filename, "biosnds9.rom", 13);
 	if(!write_file(filename, buffer, 0x1000)) {
 		rc = -3;
 		goto end;
