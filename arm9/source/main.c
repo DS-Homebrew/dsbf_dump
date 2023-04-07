@@ -23,19 +23,15 @@
 	Found at 0x1D of firmware header.
 	Here, we use it to truncate the firmware to the correct size.
 	A switch case for this can be found in printAdditionalFWInfo().
-
-	NDSL_2 is an undocumented firmware version. It is unknown what it does different, 
-	but it's there, it exists.
 */
 enum device_type {
 	DEVICE_TYPE_NDSL = 0x20,
-	DEVICE_TYPE_NDSL_2 = 0x35,
+	DEVICE_TYPE_NDSL_KOR = 0x35,
 	DEVICE_TYPE_IQUE = 0x43,
 	DEVICE_TYPE_NDSI = 0x57,
 	DEVICE_TYPE_IQUEL = 0x63,
 	DEVICE_TYPE_NDSP = 0xFF
 };
-
 
 PrintConsole topScreen;
 PrintConsole bottomScreen;
@@ -172,8 +168,8 @@ void printAdditionalFWInfo(u8* buffer) {
 		case DEVICE_TYPE_NDSL:
 			printf(", DS Lite\n(normal)");
 			break;
-		case DEVICE_TYPE_NDSL_2:
-			printf(", DS Lite\n(0x35)");
+		case DEVICE_TYPE_NDSL_KOR:
+			printf(", DS Lite (KOR)");
 			break;
 		case DEVICE_TYPE_NDSP:
 			printf(", DS Phat");
