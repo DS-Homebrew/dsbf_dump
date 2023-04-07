@@ -61,6 +61,7 @@ u32 dump_firmware(u8* buffer, u32 size) {
 	printf("Call ARM7 to dump FW\n\n");
 	fifoSendValue32(FIFO_BUFFER_ADDR, (u32)buffer);
 	fifoSendValue32(FIFO_BUFFER_SIZE, size);
+	DC_InvalidateRange((void*)buffer, size);
 	fifoSendValue32(FIFO_CONTROL, DSBF_DUMP_FW);
 	fifoWaitValue32(FIFO_RETURN);
 	fifoGetValue32(FIFO_RETURN);
@@ -113,7 +114,7 @@ bool write_file(char* path, u8* buffer, u32 size) {
 #define BUFFER_SIZE 1048576
 
 int dump_all(void) {
-	u8* buffer = (u8*)malloc(BUFFER_SIZE);
+	u8* buffer = (u8*)memalign(32, BUFFER_SIZE);
 	char filename[29] = "/FWXXXXXXXXXXXX"; // uncreative but does the job
 	int rc = 0;
 
@@ -164,7 +165,7 @@ int dump_all(void) {
 	printf("\n\n");
 
 	memset(filename+15, 0, sizeof(filename)-15);
-	printf("Done! Files saved to\n%s\n", filename);
+	printf("Done! Files saved to\n%s\n\n", filename);
 
 end:
 	free(buffer);
