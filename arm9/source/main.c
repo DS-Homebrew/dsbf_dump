@@ -25,6 +25,7 @@
 	A switch case for this can be found in printAdditionalFWInfo().
 */
 enum device_type {
+	DEVICE_TYPE_NDSL_KIOSK = 1,
 	DEVICE_TYPE_NDSL = 0x20,
 	DEVICE_TYPE_NDSL_KOR = 0x35,
 	DEVICE_TYPE_IQUE = 0x43,
@@ -162,6 +163,9 @@ void printAdditionalFWInfo(u8* buffer) {
 
 	printf("Device type: 0x%02X", buffer[0x1D]);
 	switch(buffer[0x1D]) {
+		case DEVICE_TYPE_NDSL_KIOSK:
+			printf(", DS Lite\n(Kiosk)");
+			break;
 		case DEVICE_TYPE_NDSI:
 			printf(", DSi-mode");
 			break;
