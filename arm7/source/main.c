@@ -16,13 +16,15 @@ void VblankHandler(void) {
 void readBios(u8* dest, u32 src, u32 size);
 
 int main(void) {
-	rtcReset();
+	readUserSettings();
+	ledBlink(0);
 
 	irqInit();
+	initClockIRQ();
 	fifoInit();
+	installSystemFIFO();
 	irqSet(IRQ_VBLANK, VblankHandler);
 	irqEnable(IRQ_VBLANK);
-	installSystemFIFO();
 
 	fifoSendValue32(FIFO_RETURN, 1); // notify ARM9 that things ready
 
