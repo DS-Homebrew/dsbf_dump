@@ -25,6 +25,7 @@
 	A switch case for this can be found in printAdditionalFWInfo().
 */
 enum device_type {
+	DEVICE_TYPE_NDSP_PROTO = 0,
 	DEVICE_TYPE_NDSL_KIOSK = 1,
 	DEVICE_TYPE_NDSL = 0x20,
 	DEVICE_TYPE_NDSL_KOR = 0x35,
@@ -163,11 +164,11 @@ void printAdditionalFWInfo(u8* buffer) {
 
 	printf("Device type: 0x%02X", buffer[0x1D]);
 	switch(buffer[0x1D]) {
+		case DEVICE_TYPE_NDSP_PROTO:
+			printf(", DS Phat\n(Prototype)");
+			break;
 		case DEVICE_TYPE_NDSL_KIOSK:
 			printf(", DS Lite\n(Kiosk)");
-			break;
-		case DEVICE_TYPE_NDSI:
-			printf(", DSi-mode");
 			break;
 		case DEVICE_TYPE_NDSL:
 			printf(", DS Lite\n(normal)");
@@ -175,14 +176,17 @@ void printAdditionalFWInfo(u8* buffer) {
 		case DEVICE_TYPE_NDSL_KOR:
 			printf(", DS Lite (KOR)");
 			break;
-		case DEVICE_TYPE_NDSP:
-			printf(", DS Phat");
-			break;
 		case DEVICE_TYPE_IQUE:
 			printf(", iQueDS");
 			break;
+		case DEVICE_TYPE_NDSI:
+			printf(", DSi-mode");
+			break;
 		case DEVICE_TYPE_IQUEL:
 			printf(", iQueDS Lite");
+			break;
+		case DEVICE_TYPE_NDSP:
+			printf(", DS Phat");
 			break;
 		default:
 			printf("\nWARNING: this device has an\nunknown firmware version");
