@@ -8,6 +8,8 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include <nds.h>
 #include <fat.h>
@@ -95,7 +97,7 @@ u32 dump_firmware(u8* buffer, u32 size) {
 }
 
 bool write_file(char* path, u8* buffer, u32 size) {
-	printf("Saving %s\n", path);
+	printf("Saving %s\n", path+16);
 	FILE* f = fopen(path, "wb");
 	if(!f) {
 		printf("Failed to open %s\n", path);
@@ -112,11 +114,10 @@ bool write_file(char* path, u8* buffer, u32 size) {
 
 int dump_all(void) {
 	u8* buffer = (u8*)malloc(BUFFER_SIZE);
-	char filename[14] = "FWXXXXXX.bin";
-	char mac_addr[13];
+	char filename[29] = "/FWXXXXXXXXXXXX"; // uncreative but does the job
 	int rc = 0;
 
-    // wait for ARM7 ready
+	// wait for ARM7 ready
 	fifoWaitValue32(FIFO_RETURN);
 	fifoGetValue32(FIFO_RETURN);
 
@@ -124,14 +125,20 @@ int dump_all(void) {
 
 	printf("MAC: ");
 	for(int i=0; i<6; i++) {
-		snprintf(mac_addr + (i*2), 3, "%02X", buffer[0x36+i]);
+		snprintf(filename + 3 + (i*2), 3, "%02X", buffer[0x36+i]);
 		printf("%02X", buffer[0x36+i]);
 		if (i < 5) printf(":");
 	}
 	printf("\n\n");
 
-	// store last half of MAC in file name
-	snprintf(filename, 13, "FW%s.bin", mac_addr + 6);
+	// use MAC address as folder name
+	mkdir(filename, 0777);
+	if(access(filename, F_OK) != 0) {
+		rc = -4;
+		goto end;
+	}
+
+	memcpy(filename+15, "/firmware.bin\0", 14);
 	if(!write_file(filename, buffer, ret)) {
 		rc = -1;
 		goto end;
@@ -140,7 +147,7 @@ int dump_all(void) {
 
 	toncset(buffer, 0, BUFFER_SIZE);
 	dump_arm7(buffer, 0x4000);
-	memcpy(filename, "biosnds7.rom", 13);
+	memcpy(filename+16, "biosnds7.rom", 12);
 	if(!write_file(filename, buffer, 0x4000)) {
 		rc = -2;
 		goto end;
@@ -149,12 +156,15 @@ int dump_all(void) {
 
 	toncset(buffer, 0, BUFFER_SIZE);
 	dump_arm9(buffer, 0x1000);
-	memcpy(filename, "biosnds9.rom", 13);
+	memcpy(filename+16, "biosnds9.rom", 12);
 	if(!write_file(filename, buffer, 0x1000)) {
 		rc = -3;
 		goto end;
 	}
 	printf("\n\n");
+
+	memset(filename+15, 0, sizeof(filename)-15);
+	printf("Done! Files saved to\n%s\n", filename);
 
 end:
 	free(buffer);
@@ -163,7 +173,7 @@ end:
 
 int main(int argc, char **argv)
 {
-    int ret = 0;
+	int ret = 0;
 	consoleDemoInit();
 
 	printf(" NDS B+F dumper 0.2\n");
