@@ -22,7 +22,7 @@
 	Firmware type enum.
 	Found at 0x1D of firmware header.
 	Here, we use it to truncate the firmware to the correct size.
-	A switch case for this can be found in dump_firmware().
+	A switch case for this can be found in printAdditionalFWInfo().
 
 	NDSL_2 is an undocumented firmware version. It is unknown what it does different, 
 	but it's there, it exists.
@@ -119,18 +119,6 @@ u32 dump_firmware(u8* buffer, u32 size) {
 	fifoSendValue32(FIFO_CONTROL, DSBF_DUMP_FW);
 	fifoWaitValue32(FIFO_RETURN);
 	fifoGetValue32(FIFO_RETURN);
-	switch(buffer[0x1D]) {
-		case DEVICE_TYPE_NDSI:
-		case DEVICE_TYPE_NDSL:
-		case DEVICE_TYPE_NDSL_2:
-		case DEVICE_TYPE_NDSP:
-		case DEVICE_TYPE_IQUE:
-		case DEVICE_TYPE_IQUEL:
-			break;
-		default:
-			printf("WARNING: this device has an\nunknown firmware version\n\n");
-			break;
-	}
 /*
 	switch(buffer[0x1D]) {
 		case DEVICE_TYPE_NDSI:
@@ -165,6 +153,46 @@ bool write_file(char* path, u8* buffer, u32 size) {
 	return true;
 }
 
+void printAdditionalFWInfo(u8* buffer) {
+	u8 minute = buffer[0x18];
+	u8 hour = buffer[0x19];
+	u8 day = buffer[0x1A];
+	u8 month = buffer[0x1B];
+	u8 year = buffer[0x1C];
+
+	consoleSelect(&bottomScreen);
+
+	printf("FW build date: 20%02X-%02X-%02X %02X:%02X\n\n", year, month, day, hour, minute);
+
+	printf("Device type: 0x%02X", buffer[0x1D]);
+	switch(buffer[0x1D]) {
+		case DEVICE_TYPE_NDSI:
+			printf(", DSi-mode");
+			break;
+		case DEVICE_TYPE_NDSL:
+			printf(", DS Lite\n(normal)");
+			break;
+		case DEVICE_TYPE_NDSL_2:
+			printf(", DS Lite\n(0x35)");
+			break;
+		case DEVICE_TYPE_NDSP:
+			printf(", DS Phat");
+			break;
+		case DEVICE_TYPE_IQUE:
+			printf(", iQueDS");
+			break;
+		case DEVICE_TYPE_IQUEL:
+			printf(", iQueDS Lite");
+			break;
+		default:
+			printf("\nWARNING: this device has an\nunknown firmware version");
+			break;
+	}
+	printf("\n\n");
+
+	consoleSelect(&topScreen);
+}
+
 #define BUFFER_SIZE 1048576
 
 int dump_all(void) {
@@ -178,6 +206,7 @@ int dump_all(void) {
 
 	u32 ret = dump_firmware(buffer, BUFFER_SIZE);
 
+	consoleSelect(&bottomScreen);
 	printf("MAC: ");
 	for(int i=0; i<6; i++) {
 		snprintf(filename + 3 + (i*2), 3, "%02X", buffer[0x36+i]);
@@ -185,6 +214,9 @@ int dump_all(void) {
 		if (i < 5) printf(":");
 	}
 	printf("\n\n");
+	consoleSelect(&topScreen);
+
+	printAdditionalFWInfo(buffer);
 
 	// use MAC address as folder name
 	mkdir(filename, 0777);
