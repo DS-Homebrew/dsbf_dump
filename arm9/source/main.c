@@ -39,7 +39,6 @@ enum device_type {
 // no point in adding return value as BIOS is always 4KiB
 void dump_arm9(u8* buffer, u32 size) {
 	printf("Dumping BIOS9\n\n");
-	DC_InvalidateRange((void*)0xFFFF0000, 0x1000);
 	tonccpy((void*)buffer, (void*)0xFFFF0000, size);
 }
 
