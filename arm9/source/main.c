@@ -1,6 +1,7 @@
 /*
 	NDS BIOS/firmware dumper
 
+	Copyright (C) 2016 Eric Biggers (crc32_gzip())
 	Copyright (C) 2023 DS-Homebrew
 
 	SPDX-License-Identifier: MIT
@@ -35,11 +36,64 @@ enum device_type {
 	DEVICE_TYPE_NDSP = 0xFF
 };
 
+
+PrintConsole topScreen;
+PrintConsole bottomScreen;
+
+static u32 crc32_gzip(const u8 *p, size_t len)
+{
+	u32 crc = 0;
+	const u32 divisor = 0xEDB88320;
+
+	for (size_t i = 0; i < len * 8 + 32; i++) {
+		int bit;
+		u32 multiple;
+
+		if (i < len * 8)
+			bit = (p[i / 8] >> (i % 8)) & 1;
+		else
+			bit = 0; // one of the 32 appended 0 bits
+
+		if (i < 32) // the first 32 bits are inverted
+			bit ^= 1;
+
+		if (crc & 1)
+			multiple = divisor;
+		else
+			multiple = 0;
+
+		crc >>= 1;
+		crc |= (u32)bit << 31;
+		crc ^= multiple;
+	}
+
+	return ~crc;
+}
+
+void printBiosCRC32(u8* buffer, u32 size) {
+	// size == 0x4000: BIOS7
+	// size == 0x1000: BIOS9
+	// else == ???
+	if (size != 0x1000 && size != 0x4000) return;
+
+	u32 checksum = crc32_gzip(buffer, size);
+
+	consoleSelect(&bottomScreen);
+
+	if(size == 0x4000)
+		printf("BIOS7 CRC32: %08lX\n\n", checksum);
+	else if(size == 0x1000)
+		printf("BIOS9 CRC32: %08lX\n\n", checksum);
+
+	consoleSelect(&topScreen);
+}
+
 // dump DS BIOS9
 // no point in adding return value as BIOS is always 4KiB
 void dump_arm9(u8* buffer, u32 size) {
 	printf("Dumping BIOS9\n\n");
 	tonccpy((void*)buffer, (void*)0xFFFF0000, size);
+	printBiosCRC32(buffer, size);
 }
 
 // dump DS BIOS7
@@ -51,6 +105,7 @@ void dump_arm7(u8* buffer, u32 size) {
 	fifoSendValue32(FIFO_CONTROL, DSBF_DUMP_BIOS7);
 	fifoWaitValue32(FIFO_RETURN);
 	fifoGetValue32(FIFO_RETURN);
+	printBiosCRC32(buffer, size);
 }
 
 // dump DS firmware
@@ -174,8 +229,17 @@ end:
 int main(int argc, char **argv)
 {
 	int ret = 0;
-	consoleDemoInit();
 
+	videoSetMode(MODE_0_2D);
+	videoSetModeSub(MODE_0_2D);
+
+	vramSetBankA(VRAM_A_MAIN_BG);
+	vramSetBankC(VRAM_C_SUB_BG);
+
+	consoleInit(&topScreen, 3,BgType_Text4bpp, BgSize_T_256x256, 31, 0, true, true);
+	consoleInit(&bottomScreen, 3,BgType_Text4bpp, BgSize_T_256x256, 31, 0, false, true);
+
+	consoleSelect(&topScreen);
 	printf(" NDS B+F dumper 0.2\n");
 	printf("=------------------=\n");
 
