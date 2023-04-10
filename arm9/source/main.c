@@ -16,7 +16,6 @@
 #include <fat.h>
 
 #include "fifoChannels.h"
-#include "tonccpy.h"
 
 /*
 	Firmware type enum.
@@ -90,7 +89,7 @@ void printBiosCRC32(u8* buffer, u32 size) {
 // no point in adding return value as BIOS is always 4KiB
 void dump_arm9(u8* buffer, u32 size) {
 	printf("Dumping BIOS9\n\n");
-	tonccpy((void*)buffer, (void*)0xFFFF0000, size);
+	memcpy((void*)buffer, (void*)0xFFFF0000, size);
 	printBiosCRC32(buffer, size);
 }
 
@@ -236,7 +235,7 @@ int dump_all(void) {
 	}
 	printf("\n\n");
 
-	toncset(buffer, 0, BUFFER_SIZE);
+	memset(buffer, 0, BUFFER_SIZE);
 	dump_arm7(buffer, 0x4000);
 	memcpy(filename+16, "biosnds7.rom", 12);
 	if(!write_file(filename, buffer, 0x4000)) {
@@ -245,7 +244,7 @@ int dump_all(void) {
 	}
 	printf("\n\n");
 
-	toncset(buffer, 0, BUFFER_SIZE);
+	memset(buffer, 0, BUFFER_SIZE);
 	dump_arm9(buffer, 0x1000);
 	memcpy(filename+16, "biosnds9.rom", 12);
 	if(!write_file(filename, buffer, 0x1000)) {
