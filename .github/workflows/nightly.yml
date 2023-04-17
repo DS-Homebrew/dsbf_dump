@@ -17,7 +17,6 @@ jobs:
     container: skylyrac/blocksds:slim-latest
     name: Build with Docker using BlocksDS
     outputs:
-      commit_tag: ${{ steps.vars.outputs.commit_tag }}
       commit_hash: ${{ steps.vars.outputs.commit_hash }}
       author_name: ${{ steps.vars.outputs.author_name }}
       committer_name: ${{ steps.vars.outputs.committer_name }}
@@ -38,7 +37,6 @@ jobs:
       - name: Set variables
         id: vars
         run: |
-          echo "commit_tag=$(git describe --abbrev=0 --tags)" >> $GITHUB_OUTPUT
           echo "commit_hash=$(git log --format=%h -1)" >> $GITHUB_OUTPUT
           # Webhook info
           echo "author_name=$(git log -1 $GITHUB_SHA --pretty=%aN)" >> $GITHUB_OUTPUT
