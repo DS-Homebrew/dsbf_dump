@@ -27,6 +27,10 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
+      - name: Workaround Git issue by chowning the repo
+        run: |
+          # when will github fix this
+          chown -R $(id -u):$(id -g) $PWD
       - name: Make application
         id: build
         run: |
