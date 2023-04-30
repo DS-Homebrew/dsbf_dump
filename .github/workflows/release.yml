@@ -15,7 +15,6 @@ jobs:
       author_name: ${{ steps.vars.outputs.author_name }}
       committer_name: ${{ steps.vars.outputs.committer_name }}
       commit_subject: ${{ steps.vars.outputs.commit_subject }}
-      commit_message: ${{ steps.vars.outputs.commit_message }}
       current_date: ${{ steps.vars.outputs.current_date }}
     steps:
       - name: Checkout repo
@@ -35,7 +34,6 @@ jobs:
           echo "author_name=$(git log -1 $GITHUB_SHA --pretty=%aN)" >> $GITHUB_OUTPUT
           echo "committer_name=$(git log -1 $GITHUB_SHA --pretty=%cN)" >> $GITHUB_OUTPUT
           echo "commit_subject=$(git log -1 $GITHUB_SHA --pretty=%s)" >> $GITHUB_OUTPUT
-          echo "commit_message=$(git log -1 $GITHUB_SHA --pretty=%b)" >> $GITHUB_OUTPUT
 
           CURRENT_DATE=$(date +"%Y%m%d-%H%M%S")
           echo "current_date=$CURRENT_DATE" >> $GITHUB_OUTPUT
@@ -60,7 +58,6 @@ jobs:
       AUTHOR_NAME: ${{ needs.build.outputs.author_name }}
       COMMITTER_NAME: ${{ needs.build.outputs.committer_name }}
       COMMIT_SUBJECT: ${{ needs.build.outputs.commit_subject }}
-      COMMIT_MESSAGE: ${{ needs.build.outputs.commit_message }}
     steps:
       - name: Send success webhook
         if: ${{ success() }}
