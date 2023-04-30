@@ -8,6 +8,7 @@
 */
 
 #include <stdio.h>
+#include <malloc.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
