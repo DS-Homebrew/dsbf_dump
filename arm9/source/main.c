@@ -40,28 +40,19 @@ PrintConsole bottomScreen;
 
 static u32 crc32_gzip(const u8 *p, size_t len)
 {
-	u32 crc = 0;
+	u32 crc = ~0;
 	const u32 divisor = 0xEDB88320;
 
-	for (size_t i = 0; i < len * 8 + 32; i++) {
-		int bit;
+	for (size_t i = 0; i < len * 8; i++) {
 		u32 multiple;
 
-		if (i < len * 8)
-			bit = (p[i / 8] >> (i % 8)) & 1;
-		else
-			bit = 0; // one of the 32 appended 0 bits
-
-		if (i < 32) // the first 32 bits are inverted
-			bit ^= 1;
-
+		int bit = (p[i / 8] >> (i % 8)) & 1;
+		crc ^= bit;
 		if (crc & 1)
 			multiple = divisor;
 		else
 			multiple = 0;
-
 		crc >>= 1;
-		crc |= (u32)bit << 31;
 		crc ^= multiple;
 	}
 
