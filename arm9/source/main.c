@@ -27,7 +27,7 @@
 enum device_type {
 	DEVICE_TYPE_NDSP_PROTO = 0,
 	DEVICE_TYPE_NDSL_KIOSK = 1,
-	DEVICE_TYPE_NDSL = 0x20,
+	DEVICE_TYPE_NDSL = 0x20,  // also a certain prototype
 	DEVICE_TYPE_NDSL_KOR = 0x35,
 	DEVICE_TYPE_IQUE = 0x43,
 	DEVICE_TYPE_NDSI = 0x57,
@@ -77,10 +77,23 @@ void printBiosCRC32(u8* buffer, u32 size) {
 	consoleSelect(&topScreen);
 }
 
+#define BUFFER_SIZE 1048576
+
+// get flash chip info
+void get_fw_info(u8* buffer, u32 size) {
+	printf("Call ARM7 to read flashchip info\n\n");
+	fifoSendValue32(FIFO_BUFFER_ADDR, (u32)buffer);
+	fifoSendValue32(FIFO_BUFFER_SIZE, size);
+	DC_InvalidateRange((void*)buffer, BUFFER_SIZE);
+	fifoSendValue32(FIFO_CONTROL, DSBF_DUMP_JEDEC);
+	fifoWaitValue32(FIFO_RETURN);
+	fifoGetValue32(FIFO_RETURN);
+}
+
 // dump DS BIOS9
 // no point in adding return value as BIOS is always 4KiB
 void dump_arm9(u8* buffer, u32 size) {
-	printf("Dumping BIOS9\n\n");
+	printf("Dumping BIOS9\n");
 	memcpy((void*)buffer, (void*)0xFFFF0000, size);
 	printBiosCRC32(buffer, size);
 }
@@ -88,9 +101,10 @@ void dump_arm9(u8* buffer, u32 size) {
 // dump DS BIOS7
 // no point in adding return value as BIOS is always 16KiB
 void dump_arm7(u8* buffer, u32 size) {
-	printf("Call ARM7 to dump BIOS7\n\n");
+	printf("Call ARM7 to dump BIOS7\n");
 	fifoSendValue32(FIFO_BUFFER_ADDR, (u32)buffer);
 	fifoSendValue32(FIFO_BUFFER_SIZE, size);
+	DC_InvalidateRange((void*)buffer, BUFFER_SIZE);
 	fifoSendValue32(FIFO_CONTROL, DSBF_DUMP_BIOS7);
 	fifoWaitValue32(FIFO_RETURN);
 	fifoGetValue32(FIFO_RETURN);
@@ -98,34 +112,14 @@ void dump_arm7(u8* buffer, u32 size) {
 }
 
 // dump DS firmware
-// return value: size of firmware
-u32 dump_firmware(u8* buffer, u32 size) {
-	u32 ret = 0;
-	printf("Call ARM7 to dump FW\n\n");
+void dump_firmware(u8* buffer, u32 size) {
+	printf("Call ARM7 to dump FW\n");
 	fifoSendValue32(FIFO_BUFFER_ADDR, (u32)buffer);
 	fifoSendValue32(FIFO_BUFFER_SIZE, size);
-	DC_InvalidateRange((void*)buffer, size);
+	DC_InvalidateRange((void*)buffer, BUFFER_SIZE);
 	fifoSendValue32(FIFO_CONTROL, DSBF_DUMP_FW);
 	fifoWaitValue32(FIFO_RETURN);
 	fifoGetValue32(FIFO_RETURN);
-/*
-	switch(buffer[0x1D]) {
-		case DEVICE_TYPE_NDSI:
-			ret = 0x20000;
-			break;
-		case DEVICE_TYPE_NDSL:
-		case DEVICE_TYPE_NDSP:
-			ret = 0x40000;
-			break;
-		case DEVICE_TYPE_IQUE:
-		case DEVICE_TYPE_IQUEL:
-		default:
-			ret = 0x80000;
-			break;
-	}
-*/
-	ret = 0x80000;
-	return ret;
 }
 
 bool write_file(char* path, u8* buffer, u32 size) {
@@ -188,8 +182,6 @@ void printAdditionalFWInfo(u8* buffer) {
 	consoleSelect(&topScreen);
 }
 
-#define BUFFER_SIZE 1048576
-
 int dump_all(void) {
 	u8* buffer = (u8*)memalign(32, BUFFER_SIZE);
 	char filename[29] = "/FWXXXXXXXXXXXX"; // uncreative but does the job
@@ -199,7 +191,13 @@ int dump_all(void) {
 	fifoWaitValue32(FIFO_RETURN);
 	fifoGetValue32(FIFO_RETURN);
 
-	u32 ret = dump_firmware(buffer, BUFFER_SIZE);
+	get_fw_info(buffer, 3);
+	// the firmware size is the third byte in the JEDEC read.
+	// the size is log2 of the chip size.
+	u32 firmware_size = 1 << buffer[2];
+
+	memset(buffer, 0, BUFFER_SIZE);
+	dump_firmware(buffer, firmware_size);
 
 	consoleSelect(&bottomScreen);
 	printf("MAC: ");
@@ -221,7 +219,7 @@ int dump_all(void) {
 	}
 
 	memcpy(filename+15, "/firmware.bin\0", 14);
-	if(!write_file(filename, buffer, ret)) {
+	if(!write_file(filename, buffer, firmware_size)) {
 		rc = -1;
 		goto end;
 	}
