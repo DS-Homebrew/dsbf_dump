@@ -274,7 +274,7 @@ int main(int argc, char **argv)
 	consoleInit(&bottomScreen, 3,BgType_Text4bpp, BgSize_T_256x256, 31, 0, false, true);
 
 	consoleSelect(&topScreen);
-	printf(" NDS B+F dumper 1.1.1\n");
+	printf(" NDS B+F dumper 1.2.0\n");
 	printf("=------------------=\n");
 
 	if(!fatInitDefault()) {
