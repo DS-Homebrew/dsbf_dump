@@ -195,6 +195,10 @@ int dump_all(void) {
 	// the firmware size is the third byte in the JEDEC read.
 	// the size is log2 of the chip size.
 	u32 firmware_size = 1 << buffer[2];
+	consoleSelect(&bottomScreen);
+	printf("JEDEC values: 0x%02X, 0x%02X, 0x%02X\n\n", buffer[0], buffer[1], buffer[2]);
+	printf("Firmware size = %ld KB\n\n", firmware_size / 1024);
+	consoleSelect(&topScreen);
 
 	memset(buffer, 0, BUFFER_SIZE);
 	dump_firmware(buffer, firmware_size);
