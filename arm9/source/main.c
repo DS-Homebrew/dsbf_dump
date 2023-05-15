@@ -17,23 +17,7 @@
 #include <fat.h>
 
 #include "fifoChannels.h"
-
-/*
-	Firmware type enum.
-	Found at 0x1D of firmware header.
-	Here, we use it to truncate the firmware to the correct size.
-	A switch case for this can be found in printAdditionalFWInfo().
-*/
-enum device_type {
-	DEVICE_TYPE_NDSP_PROTO = 0,
-	DEVICE_TYPE_NDSL_KIOSK = 1,
-	DEVICE_TYPE_NDSL = 0x20,  // also a certain prototype
-	DEVICE_TYPE_NDSL_KOR = 0x35,
-	DEVICE_TYPE_IQUE = 0x43,
-	DEVICE_TYPE_NDSI = 0x57,
-	DEVICE_TYPE_IQUEL = 0x63,
-	DEVICE_TYPE_NDSP = 0xFF
-};
+#include "serial_flash.h"
 
 PrintConsole topScreen;
 PrintConsole bottomScreen;
@@ -182,6 +166,21 @@ void printAdditionalFWInfo(u8* buffer) {
 	consoleSelect(&topScreen);
 }
 
+// the firmware size is the third byte in the JEDEC read.
+// the size is log2 of the chip size.
+// or it should be, but there does exist some quirky chips.
+u32 get_fw_size(u8* buffer) {
+	// Check 512KB chip quirks
+	for(int i = 0; i < sizeof(flash_chip_quirk_512); i++) {
+		if (memcmp(buffer, flash_chip_quirk_512[i], 2) == 0) return 1 << 0x13;
+	}
+	// Check 256KB chip quirks
+	for(int i = 0; i < sizeof(flash_chip_quirk_256); i++) {
+		if (memcmp(buffer, flash_chip_quirk_256[i], 2) == 0) return 1 << 0x12;
+	}
+	return 1 << buffer[2];
+}
+
 int dump_all(void) {
 	u8* buffer = (u8*)memalign(32, BUFFER_SIZE);
 	char filename[29] = "/FWXXXXXXXXXXXX"; // uncreative but does the job
@@ -194,7 +193,7 @@ int dump_all(void) {
 	get_fw_info(buffer, 3);
 	// the firmware size is the third byte in the JEDEC read.
 	// the size is log2 of the chip size.
-	u32 firmware_size = 1 << buffer[2];
+	u32 firmware_size = get_fw_size(buffer);
 	consoleSelect(&bottomScreen);
 	printf("JEDEC values: 0x%02X, 0x%02X, 0x%02X\n\n", buffer[0], buffer[1], buffer[2]);
 	printf("Firmware size = %ld KB\n\n", firmware_size / 1024);
