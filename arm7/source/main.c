@@ -10,6 +10,8 @@
 
 #include "fifoChannels.h"
 
+#define REG_SNDEXCNT (*(vu16*)0x4004700)
+
 void VblankHandler(void) {
 }
 
@@ -42,7 +44,8 @@ int main(void) {
 	irqSet(IRQ_VBLANK, VblankHandler);
 	irqEnable(IRQ_VBLANK);
 
-	fifoSendValue32(FIFO_RETURN, 1); // notify ARM9 that things ready
+	u32 isRegularDS = REG_SNDEXCNT == 0 ? 1 : 0; // If sound frequency setting is found, then the console is not a DS Phat/Lite
+	fifoSendValue32(FIFO_RETURN, isRegularDS); // notify ARM9 that things ready
 
 	// Keep the ARM7 out of main RAM
 	while(1) {

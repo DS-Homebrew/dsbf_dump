@@ -22,6 +22,8 @@
 PrintConsole topScreen;
 PrintConsole bottomScreen;
 
+static bool isRegularDS = true;
+
 static u32 crc32_gzip(const u8 *p, size_t len)
 {
 	u32 crc = ~0;
@@ -170,10 +172,14 @@ void printAdditionalFWInfo(u8* buffer) {
 // the size is log2 of the chip size.
 // or it should be, but there does exist some quirky chips.
 u32 get_fw_size(u8* buffer) {
+	// DSi / 3DS are 128KB
+	if(!isRegularDS) return 1 << 0x11;
+
 	// Check 512KB chip quirks
 	for(int i = 0; i < sizeof(flash_chip_quirk_512); i++) {
 		if (memcmp(buffer, flash_chip_quirk_512[i], 2) == 0) return 1 << 0x13;
 	}
+
 	// Check 256KB chip quirks
 	for(int i = 0; i < sizeof(flash_chip_quirk_256); i++) {
 		if (memcmp(buffer, flash_chip_quirk_256[i], 2) == 0) return 1 << 0x12;
@@ -186,9 +192,9 @@ int dump_all(void) {
 	char filename[29] = "/FWXXXXXXXXXXXX"; // uncreative but does the job
 	int rc = 0;
 
-	// wait for ARM7 ready
+	// Check if device is a regular DS
 	fifoWaitValue32(FIFO_RETURN);
-	fifoGetValue32(FIFO_RETURN);
+	isRegularDS = fifoGetValue32(FIFO_RETURN) == 1 ? true : false;
 
 	get_fw_info(buffer, 3);
 	// the firmware size is the third byte in the JEDEC read.
