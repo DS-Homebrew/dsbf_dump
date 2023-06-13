@@ -123,18 +123,15 @@ bool write_file(char* path, u8* buffer, u32 size) {
 }
 
 void printAdditionalFWInfo(u8* buffer) {
-	u8 minute = buffer[0x18];
-	u8 hour = buffer[0x19];
-	u8 day = buffer[0x1A];
-	u8 month = buffer[0x1B];
-	u8 year = buffer[0x1C];
+	firmware_header_t* fwHeader = (firmware_header_t*)malloc(sizeof(firmware_header_t));
+	memcpy(fwHeader, buffer, sizeof(firmware_header_t));
 
 	consoleSelect(&bottomScreen);
 
-	printf("FW build date: 20%02X-%02X-%02X %02X:%02X\n\n", year, month, day, hour, minute);
+	printf("FW build date: 20%02X-%02X-%02X %02X:%02X\n\n", fwHeader->buildYear, fwHeader->buildMonth, fwHeader->buildDay, fwHeader->buildHour, fwHeader->buildMinute);
 
-	printf("Device type: 0x%02X", buffer[0x1D]);
-	switch(buffer[0x1D]) {
+	printf("Device type: 0x%02X", fwHeader->deviceType);
+	switch(fwHeader->deviceType) {
 		case DEVICE_TYPE_NDSP_PROTO:
 			printf(", DS Phat\n(Prototype)");
 			break;
@@ -166,6 +163,7 @@ void printAdditionalFWInfo(u8* buffer) {
 	printf("\n\n");
 
 	consoleSelect(&topScreen);
+	free(fwHeader);
 }
 
 // the firmware size is the third byte in the JEDEC read.

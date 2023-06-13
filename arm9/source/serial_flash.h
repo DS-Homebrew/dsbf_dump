@@ -9,6 +9,37 @@
 #pragma once
 
 /*
+	Firmware header. Found at 0x0-0x29.
+*/
+typedef struct {
+	u16 part3RomAddr;
+	u16 part4RomAddr;
+	u16 part34crc16;
+	u16 part12crc16;
+	u32 firmwareIdentifier; // should be "MAC" on retail, "XB00" on no$gba
+	u16 part1RomAddr;
+	u16 part1RomDestination;
+	u16 part2RomAddr;
+	u16 part2RomDestination;
+	u16 shiftAmount;
+	u16 part5RomAddr;
+	u8  buildMinute;
+	u8  buildHour;
+	u8  buildDay;
+	u8  buildMonth;
+	u8  buildYear;
+	u8  deviceType; // see device_type enum
+	u16 reserved2;
+    u16 userSettingsOffset;
+	u16 unk[2];
+	u16 part5crc16;
+	u16 reserved3;
+} PACKED firmware_header_t;
+
+#define FIRMWARE_IQUE_EXT_USERSETTINGS BIT(6)
+#define FIRMWARE_DSI_EXT_USERSETTINGS FIRMWARE_IQUE_EXT_USERSETTINGS // same bit enabled
+
+/*
 	Firmware type enum.
 	Found at 0x1D of firmware header.
 	Here, we use it to truncate the firmware to the correct size.
