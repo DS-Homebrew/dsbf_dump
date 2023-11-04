@@ -38,11 +38,11 @@ int main(void) {
 	ledBlink(0);
 
 	irqInit();
-	initClockIRQ();
+	irqSet(IRQ_VBLANK, VblankHandler);
 	fifoInit();
 	installSystemFIFO();
-	irqSet(IRQ_VBLANK, VblankHandler);
-	irqEnable(IRQ_VBLANK);
+    initClockIRQTimer(3);
+    irqEnable(IRQ_VBLANK);
 
 	u32 isRegularDS = REG_SNDEXCNT == 0 ? 1 : 0; // If sound frequency setting is found, then the console is not a DS Phat/Lite
 	fifoSendValue32(FIFO_RETURN, isRegularDS); // notify ARM9 that things ready
