@@ -26,7 +26,8 @@ SDIMAGE		:= image.bin
 # Source code paths
 # -----------------
 
-NITROFATDIR	:= # A single directory that is the root of NitroFAT
+# A single directory that is the root of NitroFS:
+NITROFSDIR	:=
 
 # Tools
 # -----
@@ -52,7 +53,6 @@ ARM7DIR		:= arm7
 # Build artfacts
 # --------------
 
-NITROFAT_IMG	:= build/nitrofat.bin
 ROM		:= $(NAME).nds
 
 # Targets
@@ -74,16 +74,12 @@ arm9:
 arm7:
 	$(V)+$(MAKE) -f Makefile.arm7 --no-print-directory
 
-ifneq ($(strip $(NITROFATDIR)),)
+ifneq ($(strip $(NITROFSDIR)),)
 # Additional arguments for ndstool
-NDSTOOL_FAT	:= -F $(NITROFAT_IMG)
+NDSTOOL_ARGS	:= -d $(NITROFSDIR)
 
-$(NITROFAT_IMG): $(NITROFATDIR)
-	@echo "  MKFATIMG $@ $(NITROFATDIR)"
-	$(V)$(BLOCKSDS)/tools/mkfatimg/mkfatimg -t $(NITROFATDIR) $@
-
-# Make the NDS ROM depend on the filesystem image only if it is needed
-$(ROM): $(NITROFAT_IMG)
+# Make the NDS ROM depend on the filesystem only if it is needed
+$(ROM): $(NITROFSDIR)
 endif
 
 # Combine the title strings
@@ -97,7 +93,7 @@ $(ROM): arm9 arm7
 	@echo "  NDSTOOL $@"
 	$(V)$(BLOCKSDS)/tools/ndstool/ndstool -c $@ \
 		-7 build/arm7.elf -9 build/arm9.elf \
-		-h 0x200 -b $(GAME_ICON) "$(GAME_FULL_TITLE)" \
+		-b $(GAME_ICON) "$(GAME_FULL_TITLE)" \
 		$(NDSTOOL_FAT)
 
 sdimage:
@@ -105,6 +101,6 @@ sdimage:
 	$(V)$(BLOCKSDS)/tools/mkfatimg/mkfatimg -t $(SDROOT) $(SDIMAGE)
 
 dldipatch: $(ROM)
-	@echo "  DLDITOOL $(ROM)"
-	$(V)$(BLOCKSDS)/tools/dlditool/dlditool \
-		$(BLOCKSDS)/tools/dldi/r4tfv2.dldi $(ROM)
+	@echo "  DLDIPATCH $(ROM)"
+	$(V)$(BLOCKSDS)/tools/dldipatch/dldipatch patch \
+		$(BLOCKSDS)/sys/dldi_r4/r4tf.dldi $(ROM)

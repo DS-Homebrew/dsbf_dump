@@ -17,22 +17,6 @@ void VblankHandler(void) {
 
 void readBios(u8* dest, u32 src, u32 size);
 
-void readJEDEC(u8* destination, u32 size) {
-	u8 ret;
-	int oldIME = enterCriticalSection();
-	REG_SPICNT = SPI_ENABLE | SPI_BYTE_MODE | SPI_CONTINUOUS | SPI_DEVICE_FIRMWARE;
-	REG_SPIDATA = FIRMWARE_RDID; // get JEDEC
-	SerialWaitBusy();
-	ret = REG_SPIDATA; // flush that one byte
-	for(int i = 0; i < 3; i++) {
-		REG_SPIDATA = 0;
-		SerialWaitBusy();
-		destination[i] = REG_SPIDATA;
-	}
-	REG_SPICNT = 0;
-	leaveCriticalSection(oldIME);
-}
-
 int main(void) {
 	readUserSettings();
 	ledBlink(0);
@@ -60,7 +44,7 @@ int main(void) {
 				case DSBF_EXIT:
 					return 0;
 				case DSBF_DUMP_JEDEC:
-					readJEDEC((void *)mailAddr, mailSize);
+					readFirmwareJEDEC((void *)mailAddr, mailSize);
 					ret = mailSize;
 					break;
 				case DSBF_DUMP_FW:
