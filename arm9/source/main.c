@@ -23,6 +23,7 @@ PrintConsole topScreen;
 PrintConsole bottomScreen;
 
 static bool isRegularDS = true;
+static bool isNitroUnit = false;
 
 static u32 crc32_gzip(const u8 *p, size_t len)
 {
@@ -108,18 +109,57 @@ void dump_firmware(u8* buffer, u32 size) {
 	fifoGetValue32(FIFO_RETURN);
 }
 
-bool write_file(char* path, u8* buffer, u32 size) {
-	printf("Saving %s\n", path+16);
-	FILE* f = fopen(path, "wb");
-	if(!f) {
-		printf("Failed to open %s\n", path);
-		return false;
+bool save_dump(char* path, u8* buffer, u32 size) {
+	if (!isNitroUnit) {
+		printf("Saving %s\n", path+16);
+		FILE* f = fopen(path, "wb");
+		if(!f) {
+			printf("Failed to open %s\n", path);
+			return false;
+		}
+		fseek(f, 0, SEEK_SET);
+		fwrite(buffer, size, 1, f);
+		fflush(f);
+		fclose(f);
+		return true;
+	} else {
+		// If we're on a nitro unit, write the values into memory so they can be
+		// fetched from the host machine, through is-nitro-debugger or a custom
+		// tool.
+		//
+		// We fill the area around the buffer with very recognizable values, so
+		// they can be very easily searched for.
+		u8* data = malloc(size + 512);
+		memset(data, 0xDE, 256);
+		memset(data+256+size, 0xAD, 256);
+		memcpy(data+256, buffer, size);
+		printf("buffer at: %p\n", data);
+		printf("If manually dumping press START\n");
+		printf("to continue, otherwise please\n");
+		printf("hold.\n");
+		while (true) {
+			swiWaitForVBlank();
+			scanKeys();
+			// User has manually requested we continue.
+			if (keysDown() & KEY_START) break;
+			// Tools can set one of the start bytes to 0xFF in order to automatically
+			// continue. They don't necissarily have to find the start of the buffer,
+			// just any byte of the buffer is fine.
+			bool foundToolSigil = false;
+			for (u16 idx = 0; idx < 256; ++idx) {
+				if (*(data + idx) == 0xFF) {
+					foundToolSigil = true;
+					break;
+				}
+			}
+			if (foundToolSigil) break;
+		}
+		// Set data back to 0, just to be extra sure it wouldn't be confused for
+		// any future dumps.
+		memset(data, 0x00, size + 512);
+		free(data);
+		return true;
 	}
-	fseek(f, 0, SEEK_SET);
-	fwrite(buffer, size, 1, f);
-	fflush(f);
-	fclose(f);
-	return true;
 }
 
 void printAdditionalFWInfo(u8* buffer) {
@@ -219,14 +259,16 @@ int dump_all(void) {
 	printAdditionalFWInfo(buffer);
 
 	// use MAC address as folder name
-	mkdir(filename, 0777);
-	if(access(filename, F_OK) != 0) {
-		rc = -4;
-		goto end;
+	if (!isNitroUnit) {
+		mkdir(filename, 0777);
+		if(access(filename, F_OK) != 0) {
+			rc = -4;
+			goto end;
+		}
 	}
 
 	memcpy(filename+15, "/firmware.bin\0", 14);
-	if(!write_file(filename, buffer, firmware_size)) {
+	if(!save_dump(filename, buffer, firmware_size)) {
 		rc = -1;
 		goto end;
 	}
@@ -235,7 +277,7 @@ int dump_all(void) {
 	memset(buffer, 0, BUFFER_SIZE);
 	dump_arm7(buffer, 0x4000);
 	memcpy(filename+16, "biosnds7.rom", 12);
-	if(!write_file(filename, buffer, 0x4000)) {
+	if(!save_dump(filename, buffer, 0x4000)) {
 		rc = -2;
 		goto end;
 	}
@@ -244,7 +286,7 @@ int dump_all(void) {
 	memset(buffer, 0, BUFFER_SIZE);
 	dump_arm9(buffer, 0x1000);
 	memcpy(filename+16, "biosnds9.rom", 12);
-	if(!write_file(filename, buffer, 0x1000)) {
+	if(!save_dump(filename, buffer, 0x1000)) {
 		rc = -3;
 		goto end;
 	}
@@ -276,9 +318,24 @@ int main(int argc, char **argv)
 	printf("=------------------=\n");
 
 	if(!fatInitDefault()) {
-		printf("FAT init fail!\n");
-		goto end;
-	} 
+		printf("FAT init fail!\n\n");
+		printf("If this is an IS-NITRO\n");
+		printf("development unit this is\n");
+		printf("expected.\n\n");
+		printf("Please press the A button to\n");
+		printf("continue as a dev-kit.\n");
+		printf("Otherwise press start to exit.\n\n");
+
+		while(true) {
+			swiWaitForVBlank();
+			scanKeys();
+			if(keysDown() & KEY_START) return 0;
+			if(keysDown() & KEY_A) {
+				isNitroUnit = true;
+				break;
+			}
+		}
+	}
 
 	if(isDSiMode()) {
 		printf("This app only runs in DS-mode.\n");
