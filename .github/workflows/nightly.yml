@@ -25,7 +25,7 @@ jobs:
       current_date: ${{ steps.vars.outputs.current_date }}
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Setup environment
         run: git config --global safe.directory '*'
       - name: Make application
@@ -45,7 +45,7 @@ jobs:
           CURRENT_DATE=$(date +"%Y%m%d-%H%M%S")
           echo "current_date=$CURRENT_DATE" >> $GITHUB_OUTPUT
       - name: Publish build to GH Actions
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           path: dsbf_dump.nds
           name: dsbf_dump-nightly
