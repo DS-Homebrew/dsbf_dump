@@ -71,7 +71,7 @@ void get_fw_info(u8* buffer, u32 size) {
 	printf("Call ARM7 to read flashchip info\n\n");
 	fifoSendValue32(FIFO_BUFFER_ADDR, (u32)buffer);
 	fifoSendValue32(FIFO_BUFFER_SIZE, size);
-	DC_InvalidateRange((void*)buffer, BUFFER_SIZE);
+	CP15_FlushDCacheRange((void*)buffer, BUFFER_SIZE);
 	fifoSendValue32(FIFO_CONTROL, DSBF_DUMP_JEDEC);
 	fifoWaitValue32(FIFO_RETURN);
 	fifoGetValue32(FIFO_RETURN);
@@ -91,7 +91,7 @@ void dump_arm7(u8* buffer, u32 size) {
 	printf("Call ARM7 to dump BIOS7\n");
 	fifoSendValue32(FIFO_BUFFER_ADDR, (u32)buffer);
 	fifoSendValue32(FIFO_BUFFER_SIZE, size);
-	DC_InvalidateRange((void*)buffer, BUFFER_SIZE);
+	CP15_FlushDCacheRange((void*)buffer, BUFFER_SIZE);
 	fifoSendValue32(FIFO_CONTROL, DSBF_DUMP_BIOS7);
 	fifoWaitValue32(FIFO_RETURN);
 	fifoGetValue32(FIFO_RETURN);
@@ -103,7 +103,7 @@ void dump_firmware(u8* buffer, u32 size) {
 	printf("Call ARM7 to dump FW\n");
 	fifoSendValue32(FIFO_BUFFER_ADDR, (u32)buffer);
 	fifoSendValue32(FIFO_BUFFER_SIZE, size);
-	DC_InvalidateRange((void*)buffer, BUFFER_SIZE);
+	CP15_FlushDCacheRange((void*)buffer, BUFFER_SIZE);
 	fifoSendValue32(FIFO_CONTROL, DSBF_DUMP_FW);
 	fifoWaitValue32(FIFO_RETURN);
 	fifoGetValue32(FIFO_RETURN);
