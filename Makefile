@@ -1,106 +1,58 @@
-# SPDX-License-Identifier: CC0-1.0
-#
-# SPDX-FileContributor: Antonio Niño Díaz, 2023
+#---------------------------------------------------------------------------------
+.SUFFIXES:
+#---------------------------------------------------------------------------------
+ifeq ($(strip $(DEVKITARM)),)
+$(error "Please set DEVKITARM in your environment. export DEVKITARM=<path to>devkitARM")
+endif
 
-BLOCKSDS	?= /opt/blocksds/core
-BLOCKSDSEXT	?= /opt/blocksds/external
+export TARGET := $(shell basename $(CURDIR))
+export TOPDIR := $(CURDIR)
 
-# User config
-# ===========
+# GMAE_ICON is the image used to create the game icon, leave blank to use default rule
+GAME_ICON := icon.bmp
 
-NAME		:= dsbf_dump
+# specify a directory which contains the nitro filesystem
+# this is relative to the Makefile
+NITRO_FILES :=
 
+# These set the information text in the nds file
 GAME_TITLE		:= dsbf_dump
 GAME_SUBTITLE	:= NDS BIOS / FW dumper
 GAME_AUTHOR		:= cory1492 & DS-Homebrew
-GAME_ICON		:= icon.bmp
 
-# DLDI and internal SD slot of DSi
-# --------------------------------
+include $(DEVKITARM)/ds_rules
 
-# Root folder of the SD image
-SDROOT		:= sdroot
-# Name of the generated image it "DSi-1.sd" for no$gba in DSi mode
-SDIMAGE		:= image.bin
+.PHONY: checkarm7 checkarm9 clean
 
-# Source code paths
-# -----------------
+#---------------------------------------------------------------------------------
+# main targets
+#---------------------------------------------------------------------------------
+all: checkarm7 checkarm9 $(TARGET).nds
 
-# A single directory that is the root of NitroFS:
-NITROFSDIR	:=
+#---------------------------------------------------------------------------------
+checkarm7:
+	$(MAKE) -C arm7
 
-# Tools
-# -----
+#---------------------------------------------------------------------------------
+checkarm9:
+	$(MAKE) -C arm9
 
-MAKE		:= make
-RM		:= rm -rf
+#---------------------------------------------------------------------------------
+$(TARGET).nds : $(NITRO_FILES) arm7/$(TARGET).elf arm9/$(TARGET).elf
+	ndstool	-c $(TARGET).nds -7 arm7/$(TARGET).elf -9 arm9/$(TARGET).elf \
+	-b $(GAME_ICON) "$(GAME_TITLE);$(GAME_SUBTITLE1);$(GAME_SUBTITLE2)" \
+	$(_ADDFILES)
 
-# Verbose flag
-# ------------
+#---------------------------------------------------------------------------------
+arm7/$(TARGET).elf:
+	$(MAKE) -C arm7
 
-ifeq ($(VERBOSE),1)
-V		:=
-else
-V		:= @
-endif
+#---------------------------------------------------------------------------------
+arm9/$(TARGET).elf:
+	$(MAKE) -C arm9
 
-# Directories
-# -----------
-
-ARM9DIR		:= arm9
-ARM7DIR		:= arm7
-
-# Build artfacts
-# --------------
-
-ROM		:= $(NAME).nds
-
-# Targets
-# -------
-
-.PHONY: all clean arm9 arm7 dldipatch sdimage
-
-all: $(ROM)
-
+#---------------------------------------------------------------------------------
 clean:
-	@echo "  CLEAN"
-	$(V)$(MAKE) -f Makefile.arm9 clean --no-print-directory
-	$(V)$(MAKE) -f Makefile.arm7 clean --no-print-directory
-	$(V)$(RM) $(ROM) build $(SDIMAGE)
-
-arm9:
-	$(V)+$(MAKE) -f Makefile.arm9 --no-print-directory
-
-arm7:
-	$(V)+$(MAKE) -f Makefile.arm7 --no-print-directory
-
-ifneq ($(strip $(NITROFSDIR)),)
-# Additional arguments for ndstool
-NDSTOOL_ARGS	:= -d $(NITROFSDIR)
-
-# Make the NDS ROM depend on the filesystem only if it is needed
-$(ROM): $(NITROFSDIR)
-endif
-
-# Combine the title strings
-ifeq ($(strip $(GAME_SUBTITLE)),)
-    GAME_FULL_TITLE := $(GAME_TITLE);$(GAME_AUTHOR)
-else
-    GAME_FULL_TITLE := $(GAME_TITLE);$(GAME_SUBTITLE);$(GAME_AUTHOR)
-endif
-
-$(ROM): arm9 arm7
-	@echo "  NDSTOOL $@"
-	$(V)$(BLOCKSDS)/tools/ndstool/ndstool -c $@ \
-		-7 build/arm7.elf -9 build/arm9.elf \
-		-b $(GAME_ICON) "$(GAME_FULL_TITLE)" \
-		$(NDSTOOL_ARGS)
-
-sdimage:
-	@echo "  MKFATIMG $(SDIMAGE) $(SDROOT)"
-	$(V)$(BLOCKSDS)/tools/mkfatimg/mkfatimg -t $(SDROOT) $(SDIMAGE)
-
-dldipatch: $(ROM)
-	@echo "  DLDIPATCH $(ROM)"
-	$(V)$(BLOCKSDS)/tools/dldipatch/dldipatch patch \
-		$(BLOCKSDS)/sys/dldi_r4/r4tf.dldi $(ROM)
+	$(MAKE) -C arm9 clean
+	$(MAKE) -C arm7 clean
+	rm -f $(TARGET).nds

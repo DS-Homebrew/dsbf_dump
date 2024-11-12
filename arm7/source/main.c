@@ -1,62 +1,102 @@
 /*
-	NDS BIOS/firmware dumper
+	default ARM7 core
 
-	Copyright (C) 2023 DS-Homebrew
+	Copyright (C) 2005 - 2010
+	Michael Noland (joat)
+	Jason Rogers (dovoto)
+	Dave Murphy (WinterMute)
 
-	SPDX-License-Identifier: MIT
+	SPDX-License-Identifier: Zlib
+	SPDX-FileNotice: Modified to allow ARM9 to read the ARM7 BIOS and firmware.
 */
 
+#include <calico.h>
 #include <nds.h>
 
-#include "fifoChannels.h"
-
-void VblankHandler(void) {
-}
+#include "DSBF_Threads.h"
 
 void readBios(u8* dest, u32 src, u32 size);
 
-int main(void) {
-	readUserSettings();
-	ledBlink(0);
+static Thread DSBF_Thread7;
+alignas(8) static u8 DSBF_Thread7Stack[1024];
 
-	irqInit();
-	irqSet(IRQ_VBLANK, VblankHandler);
-	fifoInit();
-	installSystemFIFO();
-    initClockIRQTimer(3);
-    irqEnable(IRQ_VBLANK);
+static inline DSBF_ThreadMsgType DSBF_ThreadGetType(u32 msg)
+{
+	return (DSBF_ThreadMsgType)(msg & 0xff);
+}
 
-	u32 isRegularDS = REG_SNDEXTCNT == 0 ? 1 : 0; // If sound frequency setting is found, then the console is not a DS Phat/Lite
-	fifoSendValue32(FIFO_RETURN, isRegularDS); // notify ARM9 that things ready
+static int DSBF_ThreadMain(void* arg) {
+	// Set up PXI mailbox, used to receive PXI command words
+	Mailbox DSBF_PxiControlMailbox;
+	u32 DSBF_PxiControlMailboxData[8];
+	mailboxPrepare(&DSBF_PxiControlMailbox, DSBF_PxiControlMailboxData, sizeof(DSBF_PxiControlMailboxData)/sizeof(u32));
+	pxiSetMailbox(DSBF_PXI_CONTROL, &DSBF_PxiControlMailbox);
 
-	// Keep the ARM7 out of main RAM
-	while(1) {
-		swiWaitForVBlank();
+	// Main PXI message loop
+	for (;;) {
+		// Receive a message
+		u32 msg = mailboxRecv(&DSBF_PxiControlMailbox);
+		DSBF_ThreadMsgType type = DSBF_ThreadGetType(msg);
+		// default to EINVAL in case of invalid commands
+		u32 rc = 1;
+		switch (type) {
+			// DSBF_DUMP_JEDEC: Read the firmware chip's JEDEC identifier
+			case DSBF_DUMP_JEDEC: {
+				spiLock();
+				nvramReadJedec(&rc);
+				spiUnlock();
 
-		if(fifoCheckValue32(FIFO_CONTROL)) {
-			u32 option = fifoGetValue32(FIFO_CONTROL);
-			u32 ret = 0;
-			u32 mailAddr = fifoGetValue32(FIFO_BUFFER_ADDR);
-			u32 mailSize = fifoGetValue32(FIFO_BUFFER_SIZE);
-			switch(option) {
-				case DSBF_EXIT:
-					return 0;
-				case DSBF_DUMP_JEDEC:
-					readFirmwareJEDEC((void *)mailAddr, mailSize);
-					ret = mailSize;
-					break;
-				case DSBF_DUMP_FW:
-					readFirmware(0, (void *)mailAddr, mailSize);
-					ret = mailSize;
-					break;
-				case DSBF_DUMP_BIOS7:
-					readBios((void*)mailAddr, 0, mailSize);
-					ret = mailSize;
-					break;
-				default:
-					break;
+				break;
 			}
-			fifoSendValue32(FIFO_RETURN, ret);
+
+			// DSBF_DUMP_BIOS7: Read the ARM7 BIOS
+			case DSBF_DUMP_BIOS7: {
+				u8* bufferAddr = (u8*)mailboxRecv(&DSBF_PxiControlMailbox);
+				u32 bufferSize = mailboxRecv(&DSBF_PxiControlMailbox);
+				readBios(bufferAddr, 0, bufferSize);
+				rc = 0;
+				break;
+			}
+			default:
+				break;
 		}
+
+		// Send a reply back to the ARM9
+		pxiReply(DSBF_PXI_CONTROL, rc);
 	}
+
+	return 0;
+}
+
+int main() {
+	// Read settings from NVRAM
+	envReadNvramSettings();
+
+	// Set up extended keypad server (X/Y/hinge)
+	keypadStartExtServer();
+
+	// Configure and enable VBlank interrupt
+	lcdSetIrqMask(DISPSTAT_IE_ALL, DISPSTAT_IE_VBLANK);
+	irqEnable(IRQ_VBLANK);
+
+	// Set up RTC
+	rtcInit();
+	rtcSyncTime();
+
+	// Initialize power management
+	pmInit();
+
+	// Set up block device peripherals
+	blkInit();
+
+	// Set up server thread
+	threadPrepare(&DSBF_Thread7, DSBF_ThreadMain, NULL, &DSBF_Thread7Stack[sizeof(DSBF_Thread7Stack)], MAIN_THREAD_PRIO);
+	threadStart(&DSBF_Thread7);
+
+	// Keep the ARM7 mostly idle
+	while (pmMainLoop()) {
+		threadWaitForVBlank();
+	}
+
+	return 0;
 }

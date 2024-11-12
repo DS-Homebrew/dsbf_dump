@@ -14,8 +14,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    container: skylyrac/blocksds:slim-latest
-    name: Build with Docker using BlocksDS
+    container: devkitpro/devkitarm
+    name: Build with Docker using devkitARM
     outputs:
       commit_hash: ${{ steps.vars.outputs.commit_hash }}
       author_name: ${{ steps.vars.outputs.author_name }}
@@ -30,7 +30,7 @@ jobs:
       - name: Make application
         id: build
         run: |
-          make VERBOSE=1
+          make
       - name: Set variables
         id: vars
         run: |
