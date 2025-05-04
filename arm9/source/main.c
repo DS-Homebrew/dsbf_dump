@@ -12,19 +12,17 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include <errno.h>
 
-#include <calico/arm/cache.h>
-#include <calico/nds/env.h>
 #include <nds.h>
 #include <fat.h>
 
-#include "DSBF_Threads.h"
+#include "fifoChannels.h"
 #include "serial_flash.h"
 
 PrintConsole topScreen;
 PrintConsole bottomScreen;
 
+static bool isRegularDS = true;
 static bool isNitroUnit = false;
 
 static u32 crc32_gzip(const u8 *p, size_t len)
@@ -69,65 +67,46 @@ void printBiosCRC32(u8* buffer, u32 size) {
 #define BUFFER_SIZE 1048576
 
 // get flash chip info
-int get_fw_info(u8* buffer, u32 size) {
-	u32 jedecIdU32 = 0;
-	if(size < 3)
-		return -ENOMEM;
-
+void get_fw_info(u8* buffer, u32 size) {
 	printf("Call ARM7 to read flashchip info\n\n");
-	jedecIdU32 = pxiSendAndReceive(DSBF_PXI_CONTROL, DSBF_DUMP_JEDEC);
-	buffer[0] = (u8)((jedecIdU32 >> 16) & 0xFF);
-	buffer[1] = (u8)((jedecIdU32 >> 8)  & 0xFF);
-	buffer[2] = (u8)((jedecIdU32)       & 0xFF);
-	return 0;
+	fifoSendValue32(FIFO_BUFFER_ADDR, (u32)buffer);
+	fifoSendValue32(FIFO_BUFFER_SIZE, size);
+	CP15_FlushDCacheRange((void*)buffer, BUFFER_SIZE);
+	fifoSendValue32(FIFO_CONTROL, DSBF_DUMP_JEDEC);
+	fifoWaitValue32(FIFO_RETURN);
+	fifoGetValue32(FIFO_RETURN);
 }
 
 // dump DS BIOS9
 // no point in adding return value as BIOS is always 4KiB
-int dump_arm9(u8* buffer, u32 size) {
+void dump_arm9(u8* buffer, u32 size) {
 	printf("Dumping BIOS9\n");
-
-	if(buffer == NULL || BUFFER_SIZE < size)
-		return -ENOMEM;
-
 	memcpy((void*)buffer, (void*)0xFFFF0000, size);
 	printBiosCRC32(buffer, size);
-	return 0;
 }
 
 // dump DS BIOS7
 // no point in adding return value as BIOS is always 16KiB
-int dump_arm7(u8* buffer, u32 size) {
-	int rc = 0;
-
+void dump_arm7(u8* buffer, u32 size) {
 	printf("Call ARM7 to dump BIOS7\n");
-
-	if(buffer == NULL || BUFFER_SIZE < size)
-		return -ENOMEM;
-
-	u32 pxiParams[2] = {
-		(u32)buffer,
-		size,
-	};
-	armDCacheFlush((void*)buffer, BUFFER_SIZE);
-	rc = pxiSendWithDataAndReceive(DSBF_PXI_CONTROL, DSBF_DUMP_BIOS7, pxiParams, sizeof(pxiParams)/sizeof(u32));
-	if(rc != 0)
-		return rc;
-
+	fifoSendValue32(FIFO_BUFFER_ADDR, (u32)buffer);
+	fifoSendValue32(FIFO_BUFFER_SIZE, size);
+	CP15_FlushDCacheRange((void*)buffer, BUFFER_SIZE);
+	fifoSendValue32(FIFO_CONTROL, DSBF_DUMP_BIOS7);
+	fifoWaitValue32(FIFO_RETURN);
+	fifoGetValue32(FIFO_RETURN);
 	printBiosCRC32(buffer, size);
-
-	return 0;
 }
 
 // dump DS firmware
-int dump_firmware(u8* buffer, u32 size) {
+void dump_firmware(u8* buffer, u32 size) {
 	printf("Call ARM7 to dump FW\n");
-
-	if(buffer == NULL || BUFFER_SIZE < size)
-		return -ENOMEM;
-
-	pmReadNvram(buffer, 0, size);
-	return 0;
+	fifoSendValue32(FIFO_BUFFER_ADDR, (u32)buffer);
+	fifoSendValue32(FIFO_BUFFER_SIZE, size);
+	CP15_FlushDCacheRange((void*)buffer, BUFFER_SIZE);
+	fifoSendValue32(FIFO_CONTROL, DSBF_DUMP_FW);
+	fifoWaitValue32(FIFO_RETURN);
+	fifoGetValue32(FIFO_RETURN);
 }
 
 bool save_dump(char* path, u8* buffer, u32 size) {
@@ -230,44 +209,42 @@ void printAdditionalFWInfo(u8* buffer) {
 // the firmware size is the third byte in the JEDEC read.
 // the size is log2 of the chip size.
 // or it should be, but there does exist some quirky chips.
-u32 get_fw_size(u8* jedecId) {
+u32 get_fw_size(u8* buffer) {
 	// DSi / 3DS are 128KB
-	if(g_envExtraInfo->nvram_console_type == EnvConsoleType_DSi) return 1 << 0x11;
+	if(!isRegularDS) return 1 << 0x11;
 
 	// Check 512KB chip quirks
 	for(int i = 0; i < sizeof(flash_chip_quirk_512); i++) {
-		if (memcmp(jedecId, flash_chip_quirk_512[i], 2) == 0) return 1 << 0x13;
+		if (memcmp(buffer, flash_chip_quirk_512[i], 2) == 0) return 1 << 0x13;
 	}
 
 	// Check 256KB chip quirks
 	for(int i = 0; i < sizeof(flash_chip_quirk_256); i++) {
-		if (memcmp(jedecId, flash_chip_quirk_256[i], 2) == 0) return 1 << 0x12;
+		if (memcmp(buffer, flash_chip_quirk_256[i], 2) == 0) return 1 << 0x12;
 	}
-	return 1 << jedecId[2];
+	return 1 << buffer[2];
 }
 
-void dump_all(void) {
+int dump_all(void) {
 	u8* buffer = (u8*)memalign(32, BUFFER_SIZE);
-	u8 jedecId[3] = {};
 	char filename[29] = "/FWXXXXXXXXXXXX"; // uncreative but does the job
 	int rc = 0;
 
-	get_fw_info(jedecId, sizeof(jedecId));
+	// Check if device is a regular DS
+	fifoWaitValue32(FIFO_RETURN);
+	isRegularDS = fifoGetValue32(FIFO_RETURN) == 1 ? true : false;
+
+	get_fw_info(buffer, 3);
 	// the firmware size is the third byte in the JEDEC read.
 	// the size is log2 of the chip size.
-	u32 firmware_size = get_fw_size(jedecId);
+	u32 firmware_size = get_fw_size(buffer);
 	consoleSelect(&bottomScreen);
-	printf("JEDEC values: 0x%02X, 0x%02X, 0x%02X\n\n", jedecId[0], jedecId[1], jedecId[2]);
+	printf("JEDEC values: 0x%02X, 0x%02X, 0x%02X\n\n", buffer[0], buffer[1], buffer[2]);
 	printf("Firmware size = %ld KB\n\n", firmware_size / 1024);
 	consoleSelect(&topScreen);
 
 	memset(buffer, 0, BUFFER_SIZE);
-	rc = dump_firmware(buffer, firmware_size);
-	if(rc != 0)
-	{
-		printf("Failed. Error %d\n", rc);
-		goto end;
-	}
+	dump_firmware(buffer, firmware_size);
 
 	consoleSelect(&bottomScreen);
 	printf("MAC: ");
@@ -285,42 +262,32 @@ void dump_all(void) {
 	if (!isNitroUnit) {
 		mkdir(filename, 0777);
 		if(access(filename, F_OK) != 0) {
-			printf("Failed to create folder for dump.\n");
+			rc = -4;
 			goto end;
 		}
 	}
 
 	memcpy(filename+15, "/firmware.bin\0", 14);
 	if(!save_dump(filename, buffer, firmware_size)) {
-		printf("Failed to save firmware to file.\n");
+		rc = -1;
 		goto end;
 	}
 	printf("\n\n");
 
 	memset(buffer, 0, BUFFER_SIZE);
-	rc = dump_arm7(buffer, 0x4000);
-	if(rc != 0)
-	{
-		printf("Failed. Error %d\n", rc);
-		goto end;
-	}
+	dump_arm7(buffer, 0x4000);
 	memcpy(filename+16, "biosnds7.rom", 12);
 	if(!save_dump(filename, buffer, 0x4000)) {
-		printf("Failed to save BIOS7 to file.\n");
+		rc = -2;
 		goto end;
 	}
 	printf("\n\n");
 
 	memset(buffer, 0, BUFFER_SIZE);
-	rc = dump_arm9(buffer, 0x1000);
-	if(rc != 0)
-	{
-		printf("Failed. Error %d\n", rc);
-		goto end;
-	}
+	dump_arm9(buffer, 0x1000);
 	memcpy(filename+16, "biosnds9.rom", 12);
 	if(!save_dump(filename, buffer, 0x1000)) {
-		printf("Failed to save BIOS9 to file.\n");
+		rc = -3;
 		goto end;
 	}
 	printf("\n\n");
@@ -330,10 +297,13 @@ void dump_all(void) {
 
 end:
 	free(buffer);
+	return rc;
 }
 
 int main(int argc, char **argv)
 {
+	int ret = 0;
+
 	videoSetMode(MODE_0_2D);
 	videoSetModeSub(MODE_0_2D);
 
@@ -371,11 +341,12 @@ int main(int argc, char **argv)
 		printf("This app only runs in DS-mode.\n");
 		goto end;
 	}
-	dump_all();
+	ret = dump_all();
+	if(ret != 0) printf("Something went wrong... error %d\n", ret);
 
 end:
 	printf("Press START to exit.\n");
-	while(pmMainLoop()) {
+	while(true) {
 		swiWaitForVBlank();
 		scanKeys();
 		if(keysDown() & KEY_START) break;
