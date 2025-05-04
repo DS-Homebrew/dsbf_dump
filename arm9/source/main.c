@@ -357,7 +357,7 @@ int main(int argc, char **argv)
 		printf("Otherwise press start to exit.\n\n");
 
 		while(true) {
-			threadWaitForVBlank();
+			swiWaitForVBlank();
 			scanKeys();
 			if(keysDown() & KEY_START) return 0;
 			if(keysDown() & KEY_A) {
@@ -367,7 +367,7 @@ int main(int argc, char **argv)
 		}
 	}
 
-	if(systemIsTwlMode()) {
+	if(isDSiMode()) {
 		printf("This app only runs in DS-mode.\n");
 		goto end;
 	}
@@ -376,7 +376,7 @@ int main(int argc, char **argv)
 end:
 	printf("Press START to exit.\n");
 	while(pmMainLoop()) {
-		threadWaitForVBlank();
+		swiWaitForVBlank();
 		scanKeys();
 		if(keysDown() & KEY_START) break;
 	}
