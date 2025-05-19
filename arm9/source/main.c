@@ -18,6 +18,12 @@
 
 #include "fifoChannels.h"
 #include "serial_flash.h"
+#include "base_include.h"
+#include "save.h"
+
+#define IS_NITRO_CHOICE_MEMORY 0
+#define IS_NITRO_CHOICE_GBA_ROM 1
+#define IS_NITRO_CHOICE_GBA_SAVE 2
 
 PrintConsole topScreen;
 PrintConsole bottomScreen;
@@ -109,7 +115,86 @@ void dump_firmware(u8* buffer, u32 size) {
 	fifoGetValue32(FIFO_RETURN);
 }
 
-bool save_dump(char* path, u8* buffer, u32 size) {
+void is_nitro_save_dump_to_in_memory_buffer(u8* buffer, u32 size) {
+	// If we're on a nitro unit, write the values into memory so they can be
+	// fetched from the host machine, through is-nitro-debugger or a custom
+	// tool.
+	//
+	// We fill the area around the buffer with very recognizable values, so
+	// they can be very easily searched for.
+	u8* data = malloc(size + 512);
+	memset(data, 0xDE, 256);
+	memset(data+256+size, 0xAD, 256);
+	memcpy(data+256, buffer, size);
+	printf("buffer at: %p\n", data);
+	printf("If manually dumping press START\n");
+	printf("to continue, otherwise please\n");
+	printf("hold.\n");
+	while (true) {
+		swiWaitForVBlank();
+		scanKeys();
+		// User has manually requested we continue.
+		if (keysDown() & KEY_START) break;
+		// Tools can set one of the start bytes to 0xFF in order to automatically
+		// continue. They don't necissarily have to find the start of the buffer,
+		// just any byte of the buffer is fine.
+		bool foundToolSigil = false;
+		for (u16 idx = 0; idx < 256; ++idx) {
+			if (*(data + idx) == 0xFF) {
+				foundToolSigil = true;
+				break;
+			}
+		}
+		if (foundToolSigil) break;
+	}
+	// Set data back to 0, just to be extra sure it wouldn't be confused for
+	// any future dumps.
+	memset(data, 0x00, size + 512);
+	free(data);
+}
+
+void is_nitro_save_dump_to_gba_save_cartridge(u8* buffer, u32 size) {
+	// If we're on a nitro unit, write the values into GBA Flash space,
+	// which doesn't require a host machine...
+	REG_WAITCNT = BASE_WAITCNT_VAL;
+	size_t available_size = get_save_size();
+	size_t num_save_passes = (size + available_size - 1) / available_size;
+	printf("WARNING: All save data on the\nGBA cartridge will be deleted.\n");
+
+	for(size_t i = 0; i < num_save_passes; i++) {
+		u8* target_buffer = buffer + (i * available_size);
+		size_t remaining_size = size - (i * available_size);
+		if(remaining_size > available_size)
+			remaining_size = available_size;
+
+		printf("Saving - Step: %d/%d\nInsert a GBA cartridge\nand press A to continue.\nStep %d CRC32: %08lX\n", i + 1, num_save_passes, i + 1, crc32_gzip(target_buffer, remaining_size));
+		do {
+			swiWaitForVBlank();
+			scanKeys();
+		} while(!(keysDown() & KEY_A));
+
+		init_bank();
+		erase_all_sectors();
+		copy_ram_to_save(target_buffer, 0, remaining_size);
+	}
+}
+
+void is_nitro_save_dump_to_gba_emulated_rom(u8* buffer, u32 size) {
+	// If we're on a nitro unit, write the firmware to the GBA ROM space,
+	// which can be really easily dumped from the host machine...
+	REG_WAITCNT = BASE_WAITCNT_VAL;
+	// buffer 0x7E by default...
+	// The last value of this 0x40000 sized buffer determines where it
+	// is mapped to. If you overwrite it, the buffer becomes unaccessible.
+	// It can only be restored by writing from the host to register 0x0F841000.
+	static uint8_t pos_buffer = 0x7E;
+	const size_t adsram_size = 0x40000;
+	u8* data = ((u8*)GBAROM) + (pos_buffer * adsram_size);
+	memcpy(data, buffer, size);
+	printf("CRC32: %08lX\nbuffer at: %p\n", crc32_gzip(buffer, size), data);
+}
+
+bool save_dump(const char* path, const char* description, u8* buffer, u32 size) {
 	if (!isNitroUnit) {
 		printf("Saving %s\n", path+16);
 		FILE* f = fopen(path, "wb");
@@ -123,41 +208,35 @@ bool save_dump(char* path, u8* buffer, u32 size) {
 		fclose(f);
 		return true;
 	} else {
-		// If we're on a nitro unit, write the values into memory so they can be
-		// fetched from the host machine, through is-nitro-debugger or a custom
-		// tool.
-		//
-		// We fill the area around the buffer with very recognizable values, so
-		// they can be very easily searched for.
-		u8* data = malloc(size + 512);
-		memset(data, 0xDE, 256);
-		memset(data+256+size, 0xAD, 256);
-		memcpy(data+256, buffer, size);
-		printf("buffer at: %p\n", data);
-		printf("If manually dumping press START\n");
-		printf("to continue, otherwise please\n");
-		printf("hold.\n");
-		while (true) {
+
+		printf("How do you wish to\n dump the %s?\nA: To Memory\nSELECT:To Emulated GBA ROM\nSTART:To GBA Cartridge's Save\n", description);
+
+		int choice = -1;
+		do {
 			swiWaitForVBlank();
 			scanKeys();
-			// User has manually requested we continue.
-			if (keysDown() & KEY_START) break;
-			// Tools can set one of the start bytes to 0xFF in order to automatically
-			// continue. They don't necissarily have to find the start of the buffer,
-			// just any byte of the buffer is fine.
-			bool foundToolSigil = false;
-			for (u16 idx = 0; idx < 256; ++idx) {
-				if (*(data + idx) == 0xFF) {
-					foundToolSigil = true;
-					break;
-				}
-			}
-			if (foundToolSigil) break;
+			u32 keys = keysDown();
+			if(keys & KEY_A)
+				choice = IS_NITRO_CHOICE_MEMORY;
+			else if(keys & KEY_START)
+				choice = IS_NITRO_CHOICE_GBA_SAVE;
+			else if(keys & KEY_SELECT)
+				choice = IS_NITRO_CHOICE_GBA_ROM;
+		} while(choice == -1);
+
+		switch(choice) {
+			case IS_NITRO_CHOICE_MEMORY:
+				is_nitro_save_dump_to_in_memory_buffer(buffer, size);
+				break;
+			case IS_NITRO_CHOICE_GBA_ROM:
+				is_nitro_save_dump_to_gba_emulated_rom(buffer, size);
+				break;
+			case IS_NITRO_CHOICE_GBA_SAVE:
+				is_nitro_save_dump_to_gba_save_cartridge(buffer, size);
+				break;
+			default:
+				break;
 		}
-		// Set data back to 0, just to be extra sure it wouldn't be confused for
-		// any future dumps.
-		memset(data, 0x00, size + 512);
-		free(data);
 		return true;
 	}
 }
@@ -268,7 +347,7 @@ int dump_all(void) {
 	}
 
 	memcpy(filename+15, "/firmware.bin\0", 14);
-	if(!save_dump(filename, buffer, firmware_size)) {
+	if(!save_dump(filename, "Firmware", buffer, firmware_size)) {
 		rc = -1;
 		goto end;
 	}
@@ -277,7 +356,7 @@ int dump_all(void) {
 	memset(buffer, 0, BUFFER_SIZE);
 	dump_arm7(buffer, 0x4000);
 	memcpy(filename+16, "biosnds7.rom", 12);
-	if(!save_dump(filename, buffer, 0x4000)) {
+	if(!save_dump(filename, "BIOS NDS7", buffer, 0x4000)) {
 		rc = -2;
 		goto end;
 	}
@@ -286,7 +365,7 @@ int dump_all(void) {
 	memset(buffer, 0, BUFFER_SIZE);
 	dump_arm9(buffer, 0x1000);
 	memcpy(filename+16, "biosnds9.rom", 12);
-	if(!save_dump(filename, buffer, 0x1000)) {
+	if(!save_dump(filename, "BIOS NDS9", buffer, 0x1000)) {
 		rc = -3;
 		goto end;
 	}
